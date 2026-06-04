@@ -490,7 +490,7 @@ td{padding:12px;vertical-align:middle;}
       <button class="pin-btn" onclick="pinBack()">⌫</button>
     </div>
     <div class="lock-msg" id="lockMsg"></div>
-    <button class="lock-link" id="forgotLink" onclick="openForgotFlow()" style="display:none;">Forgot PIN?</button>
+    <button class="lock-link" id="forgotLink" onclick="openForgotFlow()">Forgot PIN?</button>
   </div>
 </div>
 
@@ -506,7 +506,8 @@ td{padding:12px;vertical-align:middle;}
     </div>
     <div class="header-user">
       <div class="user-chip"><span id="currentUserName">—</span><span class="role" id="currentUserRole">EA</span></div>
-      <button class="hbtn" onclick="openChangePIN()">🔑</button>
+      <button class="hbtn" onclick="showWorkspaceCode()">📋 Code</button>
+      <button class="hbtn" onclick="openChangePIN()">🔑 PIN</button>
       <button class="hbtn" onclick="lockApp()">🔒 Lock</button>
       <button class="btn btn-primary" id="addTaskBtn" onclick="openModal()">＋ Add Task</button>
     </div>
@@ -665,6 +666,27 @@ td{padding:12px;vertical-align:middle;}
   </div>
 </div>
 
+<!-- Workspace Code Modal -->
+<div class="modal-bg" id="wsCodeBg">
+  <div class="modal" style="width:360px;text-align:center;">
+    <h2>Your Workspace</h2>
+    <p class="modal-sub">Share these details with your client so they can access the board.</p>
+    <div style="background:var(--surface2);border:2px solid var(--accent);border-radius:12px;padding:20px;margin-bottom:20px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Workspace Code</div>
+      <div id="modalWsCode" style="font-family:'Playfair Display',serif;font-size:36px;letter-spacing:8px;color:var(--accent);margin-bottom:4px;"></div>
+      <button onclick="copyWsCode()" style="font-size:11px;background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;cursor:pointer;margin-top:6px;font-family:'Epilogue',sans-serif;">Copy Code</button>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:left;font-size:12px;line-height:1.8;color:var(--muted);">
+      <div><strong style="color:var(--text);">App URL:</strong> ea-taskboard.vercel.app</div>
+      <div><strong style="color:var(--text);">Workspace Code:</strong> <span id="modalWsCode2" style="color:var(--accent);font-weight:600;letter-spacing:2px;"></span></div>
+      <div><strong style="color:var(--text);">Client enters:</strong> Code + Client PIN</div>
+    </div>
+    <div class="modal-actions" style="justify-content:center;margin-top:16px;">
+      <button class="btn btn-primary" onclick="document.getElementById('wsCodeBg').classList.remove('open')">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -808,9 +830,40 @@ async function finishSetup(){
     }
   }
 
+  // Log to EA Performance Hub (Google Sheets)
+  logToEAHub();
+
   document.getElementById('setupScreen').classList.remove('show');
   document.getElementById('joinScreen').classList.remove('show');
   bootApp(wsCode,'ea');
+}
+
+// ── GOOGLE SHEETS LOGGING ──
+async function logToEAHub(){
+  const APPS_SCRIPT_URL = lsGet('ea_sheets_webhook') || '';
+  if(!APPS_SCRIPT_URL) return; // No webhook set yet
+
+  const payload={
+    eaName: wsData.eaName||'',
+    eaRole: wsData.eaRole||'',
+    clientName: wsData.clientName||'',
+    clientContact: wsData.clientContact||'',
+    workspaceCode: wsCode,
+    created: wsData.created||todayStr(),
+    appUrl: 'ea-taskboard.vercel.app'
+  };
+
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    console.log('Logged to EA Performance Hub');
+  }catch(e){
+    console.warn('Could not log to Google Sheets:',e);
+  }
 }
 
 // ═══════════════════════════════════
@@ -899,7 +952,7 @@ function showLock(ws,code){
   if(ws.logo){const li=document.getElementById('lockLogo');li.src=ws.logo;li.style.display='block';}
   document.getElementById('lockTitle').textContent='Enter PIN';
   document.getElementById('lockHint').textContent='Enter your EA or client PIN to access the board.';
-  document.getElementById('forgotLink').style.display='none';
+  // forgotLink always visible
   pinBuf=''; failCount=0;
   updateDots(); setMsg('','');
   enablePad();
@@ -933,7 +986,7 @@ function checkLockPIN(){
     setDotsState('error');
     const rem=5-failCount;
     if(rem>0) setMsg(`Incorrect PIN. ${rem} attempt${rem!==1?'s':''} left.`,'err');
-    else{setMsg('Too many attempts. Use "Forgot PIN?" to recover.','err');disablePad();document.getElementById('forgotLink').style.display='';}
+    else{setMsg('Too many attempts. Use "Forgot PIN?" to recover.','err');disablePad();// forgotLink always visible}
     setTimeout(()=>{if(failCount<5){pinBuf='';updateDots();}},900);
   }
 }
@@ -1356,18 +1409,36 @@ async function saveForgotPIN(){
   const np=document.getElementById('fp-newpin').value;
   const nc=document.getElementById('fp-confirm').value;
   const errEl=document.getElementById('fp-err');
-  if(djb2(phrase.toLowerCase().trim())!==wsData.phrase){errEl.textContent='Passphrase does not match.';return;}
-  if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
 
+  // Load wsData from Firebase if not already loaded
+  if(!wsData.phrase && wsCode){
+    let ws=null;
+    if(!demoMode&&db){try{const doc=await db.collection('workspaces').doc(wsCode).get();if(doc.exists)ws=doc.data();}catch(e){}}
+    if(!ws){const local=lsGet('ea_ws_'+wsCode);if(local)try{ws=JSON.parse(local);}catch(e){}}
+    if(ws) wsData=ws;
+  }
+
+  if(!wsData.phrase){errEl.textContent='Could not load workspace data. Try refreshing the page.';return;}
+  if(djb2(phrase.toLowerCase().trim())!==wsData.phrase){errEl.textContent='Passphrase does not match. Try again.';return;}
+  if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
   if(np!==nc){errEl.textContent='PINs do not match.';return;}
-  // Reset EA pin (phrase is EA-only)
+
+  // Reset EA PIN
   wsData.pinEA=djb2(np);
-  if(!demoMode&&db)await db.collection('workspaces').doc(wsCode).update({pinEA:wsData.pinEA});
-  else lsSet('ea_ws_'+wsCode,JSON.stringify(wsData));
+  // Update localStorage
+  lsSet('ea_ws_'+wsCode,JSON.stringify(wsData));
+  // Update Firebase
+  if(!demoMode&&db){
+    try{await db.collection('workspaces').doc(wsCode).update({pinEA:wsData.pinEA});}
+    catch(e){console.warn('Firebase PIN update failed:',e);}
+  }
   closeForgot();
   document.getElementById('lockScreen').classList.remove('show');
+  // Re-enable pad
+  document.querySelectorAll('.pin-btn').forEach(b=>{b.disabled=false;b.style.opacity='';});
+  pinBuf=''; failCount=0; updateDots(); setMsg('','');
   bootApp(wsCode,'ea');
-  toast('PIN reset. Welcome back!');
+  toast('PIN reset successfully!');
 }
 
 // ── EXPORT ──
@@ -1381,6 +1452,25 @@ function exportCSV(){
 
 // ── TOAST ──
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2700);}
+
+// ── WORKSPACE CODE DISPLAY ──
+function showWorkspaceCode(){
+  document.getElementById('modalWsCode').textContent=wsCode;
+  document.getElementById('modalWsCode2').textContent=wsCode;
+  document.getElementById('wsCodeBg').classList.add('open');
+}
+function copyWsCode(){
+  navigator.clipboard.writeText(wsCode).then(()=>toast('Workspace code copied!')).catch(()=>{
+    // fallback
+    const el=document.createElement('input');
+    el.value=wsCode;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    toast('Workspace code copied!');
+  });
+}
 
 // ═══════════════════════════════════
 // INIT — decide which screen to show
@@ -1441,7 +1531,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // Close modals on backdrop click
-['modalBg','changePinBg','forgotBg'].forEach(id=>{
+['modalBg','changePinBg','forgotBg','wsCodeBg'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
 });
