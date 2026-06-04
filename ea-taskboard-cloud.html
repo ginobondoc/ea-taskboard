@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EA TaskBoard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=Epilogue:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase SDKs (free, CDN, no install) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --bg:#f7f5f0;--surface:#ffffff;--surface2:#f0ede6;--border:#e2ddd6;
+  --accent:#1a1a2e;--accent2:#c8a96e;--text:#1a1a2e;--muted:#8a8070;
+  --danger:#c0392b;--warn:#d4820a;
+  --todo:#2980b9;--inprog:#27ae60;--review:#d4820a;--done:#8e44ad;
+  --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Epilogue',sans-serif;font-size:14px;min-height:100vh;}
+
+/* ── SETUP / ONBOARDING ── */
+#setupScreen{display:none;position:fixed;inset:0;background:var(--bg);z-index:2000;overflow-y:auto;padding:40px 20px;}
+#setupScreen.show{display:block;}
+.setup-wrap{max-width:520px;margin:0 auto;}
+.setup-brand{text-align:center;margin-bottom:40px;}
+.setup-brand h1{font-family:'Playfair Display',serif;font-size:36px;color:var(--accent);margin-bottom:6px;}
+.setup-brand p{color:var(--muted);font-size:13px;letter-spacing:.5px;}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
+.setup-card h2{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:6px;color:var(--accent);}
+.setup-card .sub{color:var(--muted);font-size:12px;margin-bottom:24px;line-height:1.6;}
+.steps{display:flex;gap:8px;margin-bottom:28px;}
+.step{flex:1;height:3px;border-radius:2px;background:var(--border);transition:background .3s;}
+.step.done{background:var(--accent2);}
+.step.active{background:var(--accent);}
+.logo-upload-area{border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:16px;position:relative;}
+.logo-upload-area:hover{border-color:var(--accent2);}
+.logo-upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.logo-preview{max-height:60px;max-width:160px;margin:0 auto;display:block;border-radius:6px;}
+.logo-placeholder{color:var(--muted);font-size:12px;}
+.logo-placeholder .icon{font-size:28px;margin-bottom:6px;}
+.workspace-code{background:var(--surface2);border:2px solid var(--accent);border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;}
+.workspace-code .code{font-family:'Playfair Display',serif;font-size:32px;letter-spacing:8px;color:var(--accent);margin:8px 0;}
+.workspace-code .hint{font-size:11px;color:var(--muted);}
+.info-steps{list-style:none;counter-reset:step-counter;}
+.info-steps li{counter-increment:step-counter;display:flex;gap:12px;margin-bottom:12px;font-size:13px;color:var(--muted);line-height:1.5;}
+.info-steps li::before{content:counter(step-counter);background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:1px;}
+.deploy-card{background:var(--accent);color:#fff;border-radius:16px;padding:28px 32px;margin-bottom:20px;}
+.deploy-card h2{font-family:'Playfair Display',serif;font-size:20px;margin-bottom:6px;}
+.deploy-card .sub{font-size:12px;opacity:.7;margin-bottom:20px;line-height:1.6;}
+.deploy-steps{list-style:none;counter-reset:d;}
+.deploy-steps li{counter-increment:d;display:flex;gap:10px;margin-bottom:10px;font-size:12px;opacity:.85;line-height:1.5;}
+.deploy-steps li::before{content:counter(d);background:var(--accent2);color:var(--accent);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.code-block{background:rgba(0,0,0,.3);border-radius:6px;padding:10px 14px;font-family:monospace;font-size:11px;margin:8px 0;word-break:break-all;line-height:1.6;}
+
+/* ── JOIN SCREEN ── */
+#joinScreen{display:none;position:fixed;inset:0;background:var(--bg);z-index:2000;align-items:center;justify-content:center;}
+#joinScreen.show{display:flex;}
+.join-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 40px;width:400px;max-width:94vw;box-shadow:var(--shadow);}
+.join-card h1{font-family:'Playfair Display',serif;font-size:28px;margin-bottom:6px;}
+.join-card .sub{color:var(--muted);font-size:12px;margin-bottom:28px;line-height:1.6;}
+.join-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px;}
+.join-tab{flex:1;padding:10px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;transition:all .2s;background:transparent;border:none;font-family:'Epilogue',sans-serif;color:var(--muted);}
+.join-tab.active{background:var(--accent);color:#fff;}
+
+/* ── LOCK SCREEN ── */
+#lockScreen{display:none;position:fixed;inset:0;background:var(--accent);z-index:1000;flex-direction:column;align-items:center;justify-content:center;}
+#lockScreen.show{display:flex;}
+.lock-brand{text-align:center;margin-bottom:36px;}
+.lock-brand h1{font-family:'Playfair Display',serif;font-size:30px;color:#fff;margin-bottom:4px;}
+.lock-brand .sub{font-size:11px;color:rgba(255,255,255,.5);letter-spacing:2px;text-transform:uppercase;}
+.lock-workspace{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 16px;margin-bottom:28px;}
+.lock-ws-logo{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#fff;display:none;}
+.lock-ws-info{}
+.lock-ws-name{font-size:13px;font-weight:600;color:#fff;}
+.lock-ws-client{font-size:11px;color:rgba(255,255,255,.5);}
+.lock-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:28px 32px;width:300px;max-width:92vw;display:flex;flex-direction:column;align-items:center;}
+.lock-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px;}
+.lock-hint{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:20px;text-align:center;line-height:1.5;}
+.pin-dots{display:flex;gap:10px;margin-bottom:20px;}
+.pin-dot{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.3);transition:all .15s;}
+.pin-dot.filled{background:#fff;border-color:#fff;}
+.pin-dot.error{background:var(--danger);border-color:var(--danger);}
+.pin-dot.success{background:var(--accent2);border-color:var(--accent2);}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;}
+.pin-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:'Epilogue',sans-serif;font-size:17px;font-weight:500;padding:14px;border-radius:9px;cursor:pointer;transition:all .15s;user-select:none;}
+.pin-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);}
+.pin-btn:active{transform:scale(.93);}
+.pin-btn:disabled{opacity:.25;cursor:not-allowed;}
+.pin-btn.sm{font-size:11px;color:rgba(255,255,255,.6);}
+.lock-msg{font-size:11px;min-height:16px;margin-top:10px;text-align:center;color:rgba(255,255,255,.6);}
+.lock-msg.err{color:#ff8a80;}
+.lock-msg.ok{color:var(--accent2);}
+.lock-link{font-size:12px;color:var(--accent2);background:none;border:none;cursor:pointer;margin-top:12px;font-family:'Epilogue',sans-serif;text-decoration:underline;}
+.shake{animation:shake .38s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+
+/* ── MAIN APP ── */
+#app{display:none;}
+#app.show{display:block;}
+
+/* Header */
+.app-header{background:var(--accent);padding:0 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:60px;position:sticky;top:0;z-index:100;}
+.header-brand{display:flex;align-items:center;gap:12px;}
+.header-logo{width:34px;height:34px;border-radius:7px;object-fit:contain;background:#fff;padding:2px;display:none;}
+.header-info{}
+.header-ws{font-family:'Playfair Display',serif;font-size:16px;color:#fff;}
+.header-client{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.5px;text-transform:uppercase;}
+.header-user{display:flex;align-items:center;gap:6px;}
+.user-chip{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:6px;}
+.user-chip .role{font-size:10px;background:var(--accent2);color:var(--accent);border-radius:10px;padding:1px 7px;font-weight:600;}
+.hbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Epilogue',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);color:#fff;}
+
+/* Sync indicator */
+.sync-bar{display:flex;align-items:center;gap:8px;padding:6px 28px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0;transition:background .3s;}
+.sync-dot.live{background:#27ae60;}
+.sync-dot.syncing{background:var(--warn);animation:pulse 1s infinite;}
+.sync-dot.error{background:var(--danger);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.overdue-banner{display:none;align-items:center;gap:8px;padding:8px 28px;background:rgba(192,57,43,.08);border-bottom:1px solid rgba(192,57,43,.2);font-size:12px;color:var(--danger);}
+.overdue-banner.show{display:flex;}
+
+/* Stats */
+.stats-bar{display:flex;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;}
+.stat{display:flex;align-items:center;gap:7px;padding:12px 16px;border-right:1px solid var(--border);cursor:pointer;transition:background .15s;flex-shrink:0;}
+.stat:first-child{padding-left:0;}
+.stat:hover,.stat.active{background:var(--surface2);}
+.stat-num{font-family:'Playfair Display',serif;font-size:22px;line-height:1;}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* Tabs */
+.tabs{display:flex;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--border);}
+.tab{padding:12px 18px;font-size:12px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;user-select:none;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent2);}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--surface);}
+.toolbar-left{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;}
+.sw{position:relative;flex:1;min-width:150px;max-width:260px;}
+.sw input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px 8px 32px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+.sw input:focus{border-color:var(--accent);}
+.sw input::placeholder{color:var(--muted);}
+.si{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;}
+select.fs{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+select.fs:focus{border-color:var(--accent);}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#2d2d4e;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Views */
+.view{display:none;}
+.view.active{display:block;}
+
+/* Table */
+.table-wrap{padding:0 28px 32px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:640px;}
+thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:10px 12px;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:hover{color:var(--text);}
+thead th.sorted{color:var(--accent);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+tbody tr:hover{background:var(--surface2);}
+tbody tr.ov{border-left:3px solid var(--danger);}
+td{padding:12px;vertical-align:middle;}
+.tn{font-weight:500;max-width:240px;}
+.tn small{display:block;color:var(--muted);font-size:11px;font-weight:400;margin-top:2px;}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:500;white-space:nowrap;}
+.p-todo{background:rgba(41,128,185,.1);color:var(--todo);}
+.p-ip{background:rgba(39,174,96,.1);color:var(--inprog);}
+.p-rv{background:rgba(212,130,10,.1);color:var(--review);}
+.p-dn{background:rgba(142,68,173,.1);color:var(--done);}
+.prio{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+.pu{color:var(--danger);}.ph{color:var(--warn);}.pn{color:var(--muted);}.pl{color:#bbb;}
+.dl{font-size:12px;white-space:nowrap;}
+.dl.overdue{color:var(--danger);font-weight:600;}
+.dl.today{color:var(--warn);font-weight:600;}
+.dl.soon{color:var(--review);}
+.dl.ok{color:var(--muted);}
+.pc{min-width:80px;}
+.pb{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:3px;}
+.pf{height:100%;border-radius:2px;transition:width .4s;}
+.ab{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:11px;transition:all .15s;margin-right:3px;font-family:'Epilogue',sans-serif;}
+.ab:hover{border-color:var(--accent);color:var(--accent);}
+.ab.del:hover{border-color:var(--danger);color:var(--danger);}
+.ct{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:2px 7px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+.sa{margin-left:3px;font-size:10px;}
+.empty{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.empty h3{color:var(--text);margin-bottom:6px;font-family:'Playfair Display',serif;}
+
+/* Mobile cards */
+.card-list{display:none;padding:0 16px 32px;flex-direction:column;gap:10px;}
+.tc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;border-left:4px solid transparent;box-shadow:var(--shadow);}
+.tc.ov{border-left-color:var(--danger);}
+.tc:hover{box-shadow:0 4px 20px rgba(0,0,0,.1);}
+.tc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.tc-name{font-weight:500;font-size:14px;flex:1;}
+.tc-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;align-items:center;}
+.tc-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* Comments */
+.comment-section{padding:0 28px 32px;}
+.comment-header{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.comments-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.comment-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow);}
+.comment-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.comment-author{font-size:12px;font-weight:600;}
+.comment-role{font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1px 7px;color:var(--muted);}
+.comment-time{font-size:10px;color:var(--muted);margin-left:auto;}
+.comment-text{font-size:13px;line-height:1.6;color:var(--text);}
+.comment-task-ref{font-size:10px;color:var(--muted);margin-top:4px;}
+.comment-input-wrap{display:flex;gap:8px;align-items:flex-end;}
+.comment-input-wrap textarea{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;resize:none;min-height:70px;transition:border-color .2s;line-height:1.5;}
+.comment-input-wrap textarea:focus{border-color:var(--accent);}
+.comment-no-task{font-size:12px;color:var(--muted);font-style:italic;margin-bottom:10px;}
+
+/* Weekly */
+.weekly-wrap{padding:0 28px 32px;}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+.week-nav-title{font-family:'Playfair Display',serif;font-size:18px;}
+.week-nav-btns{display:flex;gap:6px;}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+.day-col{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow);}
+.day-col.is-today{border-color:var(--accent);border-width:2px;}
+.day-hdr{padding:10px 10px 8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.day-hdr.is-today{background:rgba(26,26,46,.04);}
+.day-name{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+.day-num{font-family:'Playfair Display',serif;font-size:20px;line-height:1;}
+.is-today .day-num{color:var(--accent);}
+.day-load-bar{height:3px;border-radius:2px;margin-top:5px;background:var(--border);overflow:hidden;}
+.day-load-fill{height:100%;border-radius:2px;transition:width .3s;}
+.day-count-lbl{font-size:9px;color:var(--muted);margin-top:3px;}
+.day-tasks{padding:7px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;max-height:260px;}
+.dtc{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 8px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;}
+.dtc:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.dtc.pu2{border-left-color:var(--danger);}.dtc.ph2{border-left-color:var(--warn);}
+.dtc.pn2{border-left-color:var(--todo);}.dtc.pl2{border-left-color:#ddd;}
+.dtc.done-fade{opacity:.4;}
+.dtc-name{font-size:11px;font-weight:500;line-height:1.35;margin-bottom:4px;}
+.dtc-foot{display:flex;align-items:center;gap:4px;}
+.dtc-pill{font-size:9px;padding:2px 5px;border-radius:100px;font-weight:500;}
+.dtc-cyc{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:1px 4px;border-radius:3px;margin-left:auto;transition:color .15s;}
+.dtc-cyc:hover{color:var(--accent);}
+.day-empty{font-size:10px;color:var(--muted);text-align:center;padding:16px 0;}
+.week-mobile{display:none;flex-direction:column;gap:9px;}
+.wm-day{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.wm-day.is-today{border-color:var(--accent);border-width:2px;}
+.wm-day-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.wm-day-left{display:flex;align-items:center;gap:10px;}
+.wm-day-name{font-size:12px;font-weight:600;}
+.is-today .wm-day-name{color:var(--accent);}
+.wm-day-date{font-size:11px;color:var(--muted);}
+.wm-badge{font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:2px 8px;color:var(--muted);}
+.wm-tasks{padding:8px;display:flex;flex-direction:column;gap:6px;}
+.wm-tasks.collapsed{display:none;}
+.no-dl-section{margin-top:20px;}
+.no-dl-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:0 0 8px;border-bottom:1px solid var(--border);margin-bottom:10px;}
+.no-dl-grid{display:flex;flex-wrap:wrap;gap:7px;}
+.no-dl-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px;max-width:300px;min-width:170px;flex:1;box-shadow:var(--shadow);}
+.no-dl-card:hover{border-color:var(--accent);}
+.show-more-btn{font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:5px 0;display:block;margin-top:5px;font-family:'Epilogue',sans-serif;}
+
+/* Modals */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(26,26,46,.6);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 28px;width:480px;max-width:96vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.15);}
+.modal h2{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:5px;}
+.modal-sub{color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.6;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fr.full{grid-template-columns:1fr;}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:13px;}
+.fg label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.fg input,.fg select,.fg textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;transition:border-color .2s;width:100%;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent);}
+.fg textarea{resize:vertical;min-height:60px;}
+.fg .hint{font-size:10px;color:var(--muted);margin-top:3px;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;}
+.consistency-note{background:rgba(39,174,96,.07);border:1px solid rgba(39,174,96,.2);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--muted);margin-bottom:12px;display:none;}
+.consistency-note.show{display:block;}
+.err-txt{font-size:12px;color:var(--danger);min-height:16px;margin-bottom:8px;}
+.pin-inp{letter-spacing:6px;font-size:18px;text-align:center;}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:11px 16px;border-radius:9px;font-size:13px;z-index:600;transform:translateY(60px);opacity:0;transition:all .3s;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* Responsive */
+@media(max-width:700px){
+  .week-grid{display:none;}.week-mobile{display:flex;}
+  .table-wrap table{display:none;}.card-list{display:flex;}
+  .table-wrap .empty{display:block;}
+  .app-header,.stats-bar,.tabs,.toolbar,.weekly-wrap,.comment-section,.table-wrap{padding-left:16px;padding-right:16px;}
+  .card-list{padding-left:16px;padding-right:16px;}
+}
+@media(max-width:420px){
+  .join-card{padding:24px 20px;}
+  .setup-card,.deploy-card{padding:22px 20px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ SETUP / ONBOARDING ══════════ -->
+<div id="setupScreen">
+<div class="setup-wrap">
+  <div class="setup-brand">
+    <h1>EA TaskBoard</h1>
+    <p>Professional task management for executive assistants & their clients</p>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="steps" id="setupSteps">
+    <div class="step active" id="s1"></div>
+    <div class="step" id="s2"></div>
+    <div class="step" id="s3"></div>
+    <div class="step" id="s4"></div>
+  </div>
+
+  <!-- Step 1: Firebase config -->
+  <div id="step1">
+    <div class="deploy-card">
+      <h2>One-Time Setup (15 min)</h2>
+      <div class="sub">Required once per workspace. Free forever. No credit card needed.</div>
+      <ol class="deploy-steps">
+        <li>Go to <strong>console.firebase.google.com</strong> → Create project → name it anything → disable Analytics → Create</li>
+        <li>Inside the project: <strong>Build → Firestore Database → Create database → Start in test mode → Choose region → Enable</strong></li>
+        <li>Go to <strong>Project Settings (⚙) → General → Your apps → Web app (&lt;/&gt;) → Register app</strong> → copy the firebaseConfig object below</li>
+        <li>Paste your config in the fields below, then click Continue</li>
+      </ol>
+    </div>
+    <div class="setup-card">
+      <h2>Firebase Configuration</h2>
+      <div class="sub">Copy each value from your Firebase project settings → Web app config.</div>
+      <div class="fg"><label>API Key</label><input type="text" id="fc-apiKey" placeholder="AIzaSy..."></div>
+      <div class="fg"><label>Project ID</label><input type="text" id="fc-projectId" placeholder="my-taskboard-12345"></div>
+      <div class="fg"><label>App ID</label><input type="text" id="fc-appId" placeholder="1:123456:web:abc123"></div>
+      <div class="err-txt" id="fc-err"></div>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn btn-primary" onclick="saveFirebaseConfig()">Continue →</button>
+        <button class="btn btn-ghost" onclick="useDemoMode()">Try Demo Mode (no Firebase)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Workspace Profile -->
+  <div id="step2" style="display:none;">
+    <div class="setup-card">
+      <h2>Your Workspace Profile</h2>
+      <div class="sub">This personalizes your TaskBoard for you and your client. Shown on the header and lock screen.</div>
+      <div class="fr">
+        <div class="fg"><label>Your Name (EA) *</label><input type="text" id="ws-eaName" placeholder="e.g. Maria Santos"></div>
+        <div class="fg"><label>Your Role Title</label><input type="text" id="ws-eaRole" placeholder="e.g. Executive Assistant"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Client / Company Name *</label><input type="text" id="ws-clientName" placeholder="e.g. TalentPop"></div>
+        <div class="fg"><label>Client Contact Name</label><input type="text" id="ws-clientContact" placeholder="e.g. Gino Bondoc"></div>
+      </div>
+      <div class="fg"><label>Company Logo (optional)</label>
+        <div class="logo-upload-area" onclick="document.getElementById('logoFile').click()">
+          <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
+          <div id="logoPlaceholder" class="logo-placeholder"><div class="icon">🏢</div><div>Click to upload logo (PNG, JPG, SVG)</div><div style="font-size:10px;margin-top:4px;color:#bbb">Max 200KB recommended</div></div>
+          <img id="logoPreview" class="logo-preview" style="display:none;">
+        </div>
+      </div>
+      <div class="err-txt" id="ws-err"></div>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn btn-primary" onclick="saveWorkspaceProfile()">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: PIN Setup -->
+  <div id="step3" style="display:none;">
+    <div class="setup-card">
+      <h2>Set Your PIN</h2>
+      <div class="sub">Your personal 4-digit PIN to access this TaskBoard. Clients will use a separate client PIN you set below.</div>
+      <div class="fr">
+        <div class="fg"><label>Your PIN (4 digits) *</label><input type="password" id="pin-ea" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+        <div class="fg"><label>Confirm Your PIN</label><input type="password" id="pin-ea2" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+      </div>
+      <div class="fg"><label>Recovery Passphrase *</label><input type="text" id="pin-phrase" placeholder="Something memorable — write it down!" autocomplete="off"></div>
+      <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;">Client Access PIN</div>
+        <div class="fr">
+          <div class="fg"><label>Client PIN (4 digits) *</label><input type="password" id="pin-client" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+          <div class="fg"><label>Confirm Client PIN</label><input type="password" id="pin-client2" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);">Share this PIN with your client so they can access the shared board.</div>
+      </div>
+      <div class="err-txt" id="pin-err"></div>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn btn-primary" onclick="savePINSetup()">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Workspace Code -->
+  <div id="step4" style="display:none;">
+    <div class="setup-card">
+      <h2>Your Workspace is Ready 🎉</h2>
+      <div class="sub">Share the details below with your client so they can access the same board from any device.</div>
+      <div class="workspace-code">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Workspace Code</div>
+        <div class="code" id="displayWsCode">—</div>
+        <div class="hint">Client opens this same file/URL → enters code → enters client PIN</div>
+      </div>
+      <ol class="info-steps">
+        <li>Send your client the <strong>Workspace Code</strong> above and the <strong>Client PIN</strong> you set</li>
+        <li>Your client opens this URL/file → clicks "Join Existing Workspace" → enters both</li>
+        <li>Both of you see the same board, in real-time</li>
+        <li><strong>Bookmark this page</strong> — your data lives in Firebase, not the browser</li>
+      </ol>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--muted);margin-top:12px;">
+        💡 <strong>Data safety:</strong> All tasks are stored in Firebase (cloud), not your browser. Data persists across devices, browsers, and incognito mode — as long as Firebase is connected.
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:20px;">
+        <button class="btn btn-primary" onclick="finishSetup()">Open My TaskBoard →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════ JOIN SCREEN ══════════ -->
+<div id="joinScreen">
+  <div class="join-card">
+    <h1>EA TaskBoard</h1>
+    <div class="sub">Access your workspace or set up a new one.</div>
+    <div class="join-tabs">
+      <button class="join-tab active" onclick="switchJoinTab('new')">New Workspace</button>
+      <button class="join-tab" onclick="switchJoinTab('join')">Join Existing</button>
+    </div>
+    <div id="joinNew">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Set up a new workspace for you and your client. Takes about 15 minutes.</p>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="startSetup()">Set Up New Workspace →</button>
+    </div>
+    <div id="joinExisting" style="display:none;">
+      <div class="fg"><label>Workspace Code</label><input type="text" id="j-code" placeholder="e.g. MKTA7B" style="text-transform:uppercase;letter-spacing:3px;" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="fg"><label>Your PIN</label><input type="password" id="j-pin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+      <div class="err-txt" id="j-err"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="joinWorkspace()">Access Workspace →</button>
+      <button class="lock-link" style="color:var(--accent);margin-top:10px;display:block;text-align:center;" onclick="openForgotFlow()">Forgot PIN?</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LOCK SCREEN ══════════ -->
+<div id="lockScreen">
+  <div class="lock-brand">
+    <h1 id="lockWsName">TaskBoard</h1>
+    <div class="sub" id="lockClientName">EA Command Center</div>
+  </div>
+  <div class="lock-workspace" id="lockWsRow">
+    <img id="lockLogo" class="lock-ws-logo">
+    <div class="lock-ws-info">
+      <div class="lock-ws-name" id="lockWsEA">—</div>
+      <div class="lock-ws-client" id="lockWsClient">—</div>
+    </div>
+  </div>
+  <div class="lock-card" id="lockCard">
+    <div class="lock-title" id="lockTitle">Enter PIN</div>
+    <div class="lock-hint" id="lockHint">Enter your PIN to access the board.</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="dot0"></div>
+      <div class="pin-dot" id="dot1"></div>
+      <div class="pin-dot" id="dot2"></div>
+      <div class="pin-dot" id="dot3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn sm" onclick="pinClear()">Clear</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn" onclick="pinBack()">⌫</button>
+    </div>
+    <div class="lock-msg" id="lockMsg"></div>
+    <button class="lock-link" id="forgotLink" onclick="openForgotFlow()" style="display:none;">Forgot PIN?</button>
+  </div>
+</div>
+
+<!-- ══════════ MAIN APP ══════════ -->
+<div id="app">
+  <div class="app-header">
+    <div class="header-brand">
+      <img id="headerLogo" class="header-logo">
+      <div class="header-info">
+        <div class="header-ws" id="headerWsName">TaskBoard</div>
+        <div class="header-client" id="headerClientName">EA Command Center</div>
+      </div>
+    </div>
+    <div class="header-user">
+      <div class="user-chip"><span id="currentUserName">—</span><span class="role" id="currentUserRole">EA</span></div>
+      <button class="hbtn" onclick="openChangePIN()">🔑</button>
+      <button class="hbtn" onclick="lockApp()">🔒 Lock</button>
+      <button class="btn btn-primary" id="addTaskBtn" onclick="openModal()">＋ Add Task</button>
+    </div>
+  </div>
+
+  <div class="sync-bar">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncLabel">Connecting…</span>
+    <span style="margin-left:auto;color:var(--muted);" id="wsCodeDisplay"></span>
+  </div>
+
+  <div class="overdue-banner" id="overdueBanner">⚠️ <span id="overdueText"></span></div>
+
+  <div class="stats-bar">
+    <div class="stat" onclick="filterStatus('all')" id="stat-all"><div><div class="stat-num" id="cnt-all">0</div><div class="stat-label">Total</div></div></div>
+    <div class="stat" onclick="filterStatus('To Do')" id="stat-todo"><div class="sdot" style="background:var(--todo)"></div><div><div class="stat-num" id="cnt-todo">0</div><div class="stat-label">To Do</div></div></div>
+    <div class="stat" onclick="filterStatus('In Progress')" id="stat-ip"><div class="sdot" style="background:var(--inprog)"></div><div><div class="stat-num" id="cnt-ip">0</div><div class="stat-label">In Progress</div></div></div>
+    <div class="stat" onclick="filterStatus('For Review')" id="stat-rv"><div class="sdot" style="background:var(--review)"></div><div><div class="stat-num" id="cnt-rv">0</div><div class="stat-label">For Review</div></div></div>
+    <div class="stat" onclick="filterStatus('Done')" id="stat-dn"><div class="sdot" style="background:var(--done)"></div><div><div class="stat-num" id="cnt-dn">0</div><div class="stat-label">Done</div></div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-list" onclick="switchTab('list')">📋 Tasks</div>
+    <div class="tab" id="tab-week" onclick="switchTab('week')">📅 Weekly</div>
+    <div class="tab" id="tab-comments" onclick="switchTab('comments')">💬 Comments <span id="commentBadge" style="display:none;background:var(--accent2);color:var(--accent);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;"></span></div>
+  </div>
+
+  <div class="toolbar" id="listToolbar">
+    <div class="toolbar-left">
+      <div class="sw"><span class="si">🔍</span><input type="text" id="searchInput" placeholder="Search tasks…" oninput="render()"></div>
+      <select class="fs" id="prioFilter" onchange="render()">
+        <option value="">All Priorities</option>
+        <option value="Urgent">🔴 Urgent</option>
+        <option value="High">🟡 High</option>
+        <option value="Normal">⚪ Normal</option>
+        <option value="Low">🔵 Low</option>
+      </select>
+      <select class="fs" id="catFilter" onchange="render()"><option value="">All Categories</option></select>
+    </div>
+    <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+
+  <!-- LIST VIEW -->
+  <div class="view active" id="view-list">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('task')" id="th-task">Task <span class="sa"></span></th>
+          <th onclick="sortBy('category')" id="th-category">Category <span class="sa"></span></th>
+          <th onclick="sortBy('status')" id="th-status">Status <span class="sa"></span></th>
+          <th onclick="sortBy('priority')" id="th-priority">Priority <span class="sa"></span></th>
+          <th onclick="sortBy('deadline')" id="th-deadline">Deadline <span class="sa"></span></th>
+          <th onclick="sortBy('progress')" id="th-progress">Progress <span class="sa"></span></th>
+          <th>Actions</th>
+        </tr></thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+      <div class="empty" id="emptyState" style="display:none;"><div class="empty-icon">📋</div><h3>No tasks found</h3><p>Add a task or adjust filters.</p></div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </div>
+
+  <!-- WEEKLY VIEW -->
+  <div class="view" id="view-week">
+    <div class="weekly-wrap">
+      <div class="week-nav">
+        <div class="week-nav-title" id="weekRangeLabel"></div>
+        <div class="week-nav-btns">
+          <button class="btn btn-ghost" onclick="shiftWeek(-1)">← Prev</button>
+          <button class="btn btn-ghost" onclick="shiftWeek(0)">Today</button>
+          <button class="btn btn-ghost" onclick="shiftWeek(1)">Next →</button>
+        </div>
+      </div>
+      <div class="week-grid" id="weekGrid"></div>
+      <div class="week-mobile" id="weekMobile"></div>
+      <div class="no-dl-section">
+        <div class="no-dl-hdr">📌 No Deadline Set</div>
+        <div class="no-dl-grid" id="noDlGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMENTS VIEW -->
+  <div class="view" id="view-comments">
+    <div class="comment-section">
+      <div style="margin-bottom:16px;padding-top:16px;">
+        <div class="comment-header">Team Comments & Updates</div>
+        <div id="commentsList" class="comments-list"></div>
+        <div class="comment-no-task" id="commentTaskRef">Commenting on: <strong>General</strong> <button class="ab" onclick="clearCommentTask()" style="display:none;" id="clearTaskRef">✕ Clear</button></div>
+        <div class="comment-input-wrap">
+          <textarea id="commentInput" placeholder="Add a comment or update for the team…" rows="2"></textarea>
+          <button class="btn btn-primary" onclick="postComment()">Post</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODALS ══════════ -->
+<!-- Task Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="modalTitle">New Task</h2>
+    <p class="modal-sub" id="modalSub">Fill in the details below.</p>
+    <div class="consistency-note" id="consistencyNote"></div>
+    <div class="fr full"><div class="fg"><label>Task Name *</label><input type="text" id="f-task" placeholder="e.g. Send weekly report to client"></div></div>
+    <div class="fr full"><div class="fg"><label>Notes / Description</label><textarea id="f-notes" placeholder="Any context…"></textarea></div></div>
+    <div class="fr">
+      <div class="fg"><label>Category</label><input type="text" id="f-category" list="cat-list" placeholder="Admin, Comms…"><datalist id="cat-list"></datalist></div>
+      <div class="fg"><label>Assigned To</label><input type="text" id="f-assignee" placeholder="Name or initials"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Status</label><select id="f-status" onchange="onStatusChange()"><option>To Do</option><option>In Progress</option><option>For Review</option><option>Done</option></select></div>
+      <div class="fg"><label>Priority</label><select id="f-priority"><option>Normal</option><option>Urgent</option><option>High</option><option>Low</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Deadline</label><input type="date" id="f-deadline"></div>
+      <div class="fg"><label>Progress (0–100%)</label><input type="number" id="f-progress" min="0" max="100" placeholder="0" oninput="onProgressChange()"><span class="hint" id="progressHint"></span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change PIN Modal -->
+<div class="modal-bg" id="changePinBg">
+  <div class="modal" style="width:360px;">
+    <h2>Change PIN</h2>
+    <p class="modal-sub">Verify your current PIN, then set a new one.</p>
+    <div class="fg"><label>Current PIN</label><input type="password" id="cp-current" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+    <div class="fg"><label>New PIN</label><input type="password" id="cp-new" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+    <div class="fg"><label>Confirm New PIN</label><input type="password" id="cp-confirm" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+    <div class="err-txt" id="cp-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeChangePIN()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveChangePIN()">Update PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot PIN Modal -->
+<div class="modal-bg" id="forgotBg">
+  <div class="modal" style="width:360px;">
+    <h2>Forgot PIN</h2>
+    <p class="modal-sub">Enter your recovery passphrase to reset your PIN.</p>
+    <div class="fg"><label>Recovery Passphrase</label><input type="text" id="fp-phrase" placeholder="Your passphrase…" autocomplete="off"></div>
+    <div class="fg"><label>New PIN</label><input type="password" id="fp-newpin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+    <div class="fg"><label>Confirm New PIN</label><input type="password" id="fp-confirm" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+    <div class="err-txt" id="fp-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeForgot()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveForgotPIN()">Reset PIN</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════
+const WEAK=['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','0123','9876','1122','1212'];
+const STATUSES=['To Do','In Progress','For Review','Done'];
+const PRIO_ORDER={Urgent:0,High:1,Normal:2,Low:3};
+const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DF=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+let db=null, wsCode='', wsData={}, currentUser={name:'',role:'ea'};
+let tasks=[], comments=[], unsubTasks=null, unsubComments=null;
+let commentTaskId=null, noDlExp=false, weekOffset=0;
+let sortField='deadline', sortDir=1, activeSF='all', activeTab='list';
+let editId=null, failCount=0, pinBuf='';
+let demoMode=false;
+
+// ═══════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════
+function djb2(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return(h>>>0).toString(36);}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
+
+// ═══════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════
+function initFirebase(cfg){
+  try{
+    if(firebase.apps.length) firebase.app().delete();
+    firebase.initializeApp({apiKey:cfg.apiKey,authDomain:`${cfg.projectId}.firebaseapp.com`,projectId:cfg.projectId,appId:cfg.appId});
+    db=firebase.firestore();
+    return true;
+  }catch(e){console.error('Firebase init error:',e);return false;}
+}
+
+// ═══════════════════════════════════
+// SETUP FLOW
+// ═══════════════════════════════════
+let logoBase64='';
+let setupStep=1;
+
+function showStep(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('step'+i).style.display=i===n?'':'none';
+    const s=document.getElementById('s'+i);
+    if(s){s.className='step'+(i<n?' done':i===n?' active':'');}
+  });
+  setupStep=n;
+}
+
+function saveFirebaseConfig(){
+  const apiKey=document.getElementById('fc-apiKey').value.trim();
+  const projectId=document.getElementById('fc-projectId').value.trim();
+  const appId=document.getElementById('fc-appId').value.trim();
+  const errEl=document.getElementById('fc-err');
+  if(!apiKey||!projectId||!appId){errEl.textContent='All three fields are required.';return;}
+  const cfg={apiKey,projectId,appId};
+  if(!initFirebase(cfg)){errEl.textContent='Could not connect to Firebase. Check your config values.';return;}
+  lsSet('ea_fb_cfg',JSON.stringify(cfg));
+  showStep(2);
+}
+
+function useDemoMode(){
+  demoMode=true;
+  lsSet('ea_demo','1');
+  showStep(2);
+}
+
+function handleLogoUpload(e){
+  const file=e.target.files[0]; if(!file) return;
+  if(file.size>500000){toast('Image too large. Keep it under 500KB.');return;}
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    logoBase64=ev.target.result;
+    document.getElementById('logoPlaceholder').style.display='none';
+    const img=document.getElementById('logoPreview');
+    img.src=logoBase64; img.style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveWorkspaceProfile(){
+  const eaName=document.getElementById('ws-eaName').value.trim();
+  const clientName=document.getElementById('ws-clientName').value.trim();
+  const errEl=document.getElementById('ws-err');
+  if(!eaName||!clientName){errEl.textContent='EA name and client name are required.';return;}
+  wsData={
+    eaName, clientName,
+    eaRole:document.getElementById('ws-eaRole').value.trim()||'Executive Assistant',
+    clientContact:document.getElementById('ws-clientContact').value.trim(),
+    logo:logoBase64
+  };
+  showStep(3);
+}
+
+function savePINSetup(){
+  const eaPin=document.getElementById('pin-ea').value;
+  const eaPin2=document.getElementById('pin-ea2').value;
+  const phrase=document.getElementById('pin-phrase').value.trim();
+  const clientPin=document.getElementById('pin-client').value;
+  const clientPin2=document.getElementById('pin-client2').value;
+  const errEl=document.getElementById('pin-err');
+  if(!/^\d{4}$/.test(eaPin)){errEl.textContent='Your PIN must be exactly 4 digits.';return;}
+  if(WEAK.includes(eaPin)){errEl.textContent='Your PIN is too simple. Try something less predictable.';return;}
+  if(eaPin!==eaPin2){errEl.textContent='Your PINs do not match.';return;}
+  if(phrase.length<4){errEl.textContent='Recovery passphrase must be at least 4 characters.';return;}
+  if(!/^\d{4}$/.test(clientPin)){errEl.textContent='Client PIN must be exactly 4 digits.';return;}
+  if(WEAK.includes(clientPin)){errEl.textContent='Client PIN is too simple.';return;}
+  if(clientPin!==clientPin2){errEl.textContent='Client PINs do not match.';return;}
+  if(clientPin===eaPin){errEl.textContent='Client PIN must be different from your PIN.';return;}
+
+  wsCode=genCode();
+  wsData.code=wsCode;
+  wsData.pinEA=djb2(eaPin);
+  wsData.pinClient=djb2(clientPin);
+  wsData.phrase=djb2(phrase.toLowerCase().trim());
+  wsData.created=todayStr();
+
+  document.getElementById('displayWsCode').textContent=wsCode;
+  showStep(4);
+}
+
+async function finishSetup(){
+  // Save to Firebase or localStorage demo
+  if(!demoMode&&db){
+    try{
+      await db.collection('workspaces').doc(wsCode).set(wsData);
+    }catch(e){toast('⚠ Could not save to Firebase. Check connection.');return;}
+  } else {
+    lsSet('ea_ws_'+wsCode, JSON.stringify(wsData));
+  }
+  lsSet('ea_last_code', wsCode);
+  lsSet('ea_last_role','ea');
+  document.getElementById('setupScreen').classList.remove('show');
+  bootApp(wsCode,'ea');
+}
+
+// ═══════════════════════════════════
+// JOIN FLOW
+// ═══════════════════════════════════
+function switchJoinTab(t){
+  document.getElementById('joinNew').style.display=t==='new'?'':'none';
+  document.getElementById('joinExisting').style.display=t==='join'?'':'none';
+  document.querySelectorAll('.join-tab').forEach((el,i)=>el.classList.toggle('active',(t==='new'&&i===0)||(t==='join'&&i===1)));
+}
+
+function startSetup(){
+  document.getElementById('joinScreen').classList.remove('show');
+  document.getElementById('setupScreen').classList.add('show');
+  showStep(1);
+}
+
+async function joinWorkspace(){
+  const code=document.getElementById('j-code').value.trim().toUpperCase();
+  const pin=document.getElementById('j-pin').value;
+  const errEl=document.getElementById('j-err');
+  if(!code||code.length!==6){errEl.textContent='Enter a valid 6-character workspace code.';return;}
+  if(!/^\d{4}$/.test(pin)){errEl.textContent='PIN must be 4 digits.';return;}
+
+  let ws=null;
+  if(!demoMode&&db){
+    try{const doc=await db.collection('workspaces').doc(code).get();if(doc.exists)ws=doc.data();}
+    catch(e){}
+  }
+  if(!ws){const local=lsGet('ea_ws_'+code);if(local)ws=JSON.parse(local);}
+  if(!ws){errEl.textContent='Workspace not found. Check the code.';return;}
+
+  const pinH=djb2(pin);
+  let role='';
+  if(pinH===ws.pinEA) role='ea';
+  else if(pinH===ws.pinClient) role='client';
+  else{errEl.textContent='Incorrect PIN.';return;}
+
+  lsSet('ea_last_code',code);
+  lsSet('ea_last_role',role);
+  if(!demoMode&&db){const cfg=JSON.parse(lsGet('ea_fb_cfg')||'{}');if(cfg.apiKey)initFirebase(cfg);}
+  document.getElementById('joinScreen').classList.remove('show');
+  wsData=ws; wsCode=code;
+  bootApp(code,role);
+}
+
+// ═══════════════════════════════════
+// LOCK SCREEN
+// ═══════════════════════════════════
+function showLock(ws,code){
+  wsCode=code; wsData=ws;
+  document.getElementById('lockWsName').textContent=ws.clientName||'TaskBoard';
+  document.getElementById('lockClientName').textContent=ws.eaName||'EA Command Center';
+  document.getElementById('lockWsEA').textContent=(ws.eaName||'EA')+' — '+(ws.eaRole||'Executive Assistant');
+  document.getElementById('lockWsClient').textContent=ws.clientName||'';
+  if(ws.logo){const li=document.getElementById('lockLogo');li.src=ws.logo;li.style.display='block';}
+  document.getElementById('lockTitle').textContent='Enter PIN';
+  document.getElementById('lockHint').textContent='Enter your EA or client PIN to access the board.';
+  document.getElementById('forgotLink').style.display='none';
+  pinBuf=''; failCount=0;
+  updateDots(); setMsg('','');
+  enablePad();
+  document.getElementById('lockScreen').classList.add('show');
+}
+
+let pinBuf='';
+function updateDots(){for(let i=0;i<4;i++){const d=document.getElementById('dot'+i);d.className='pin-dot'+(i<pinBuf.length?' filled':'');}}
+function setDotsState(s){for(let i=0;i<4;i++)document.getElementById('dot'+i).className='pin-dot '+s;}
+function setMsg(m,t){const e=document.getElementById('lockMsg');e.textContent=m;e.className='lock-msg'+(t?' '+t:'');}
+function enablePad(){document.querySelectorAll('.pin-btn').forEach(b=>{b.disabled=false;b.style.opacity='';});}
+function disablePad(){document.querySelectorAll('.pin-btn').forEach(b=>{b.disabled=true;b.style.opacity='.25';});}
+
+function pinPress(d){if(pinBuf.length>=4)return;pinBuf+=d;updateDots();setMsg('','');if(pinBuf.length===4)setTimeout(checkLockPIN,130);}
+function pinBack(){if(pinBuf.length>0){pinBuf=pinBuf.slice(0,-1);updateDots();}}
+function pinClear(){pinBuf='';updateDots();setMsg('','');}
+
+function checkLockPIN(){
+  const h=djb2(pinBuf);
+  let role='';
+  if(h===wsData.pinEA) role='ea';
+  else if(h===wsData.pinClient) role='client';
+  if(role){
+    failCount=0; setDotsState('success');
+    setTimeout(()=>{
+      document.getElementById('lockScreen').classList.remove('show');
+      lsSet('ea_last_role',role);
+      bootApp(wsCode,role,true);
+    },400);
+  } else {
+    failCount++;
+    setDotsState('error');
+    const rem=5-failCount;
+    if(rem>0) setMsg(`Incorrect PIN. ${rem} attempt${rem!==1?'s':''} left.`,'err');
+    else{setMsg('Too many attempts. Use "Forgot PIN?" to recover.','err');disablePad();document.getElementById('forgotLink').style.display='';}
+    setTimeout(()=>{if(failCount<5){pinBuf='';updateDots();}},900);
+  }
+}
+
+function lockApp(){
+  stopListeners();
+  document.getElementById('app').classList.remove('show');
+  showLock(wsData,wsCode);
+}
+
+// ═══════════════════════════════════
+// BOOT APP
+// ═══════════════════════════════════
+function bootApp(code,role,fromLock=false){
+  wsCode=code;
+  const isEA=role==='ea';
+  currentUser={name:isEA?wsData.eaName:wsData.clientContact||wsData.clientName,role};
+
+  // Header
+  document.getElementById('headerWsName').textContent=wsData.clientName||'TaskBoard';
+  document.getElementById('headerClientName').textContent=(wsData.eaName||'EA')+' · '+(wsData.eaRole||'Executive Assistant');
+  document.getElementById('currentUserName').textContent=currentUser.name;
+  document.getElementById('currentUserRole').textContent=isEA?'EA':'Client';
+  document.getElementById('wsCodeDisplay').textContent='Workspace: '+code;
+  if(wsData.logo){const hl=document.getElementById('headerLogo');hl.src=wsData.logo;hl.style.display='block';}
+
+  // Client can add/edit tasks too (as per requirement)
+  document.getElementById('addTaskBtn').style.display='';
+
+  document.getElementById('app').classList.add('show');
+  setSyncStatus('syncing','Connecting…');
+
+  if(!demoMode&&db){
+    startListeners(code);
+  } else {
+    // Demo mode — localStorage
+    tasks=loadDemoTasks(code);
+    comments=loadDemoComments(code);
+    setSyncStatus('live','Demo mode — data saved locally');
+    render(); renderComments();
+  }
+}
+
+// ═══════════════════════════════════
+// FIREBASE REAL-TIME LISTENERS
+// ═══════════════════════════════════
+function startListeners(code){
+  stopListeners();
+  setSyncStatus('syncing','Connecting…');
+
+  unsubTasks=db.collection('workspaces').doc(code).collection('tasks')
+    .orderBy('created','asc')
+    .onSnapshot(snap=>{
+      tasks=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setSyncStatus('live','Live — syncing across all devices');
+      render();
+    },err=>{setSyncStatus('error','Sync error — check connection');console.error(err);});
+
+  unsubComments=db.collection('workspaces').doc(code).collection('comments')
+    .orderBy('ts','asc')
+    .onSnapshot(snap=>{
+      comments=snap.docs.map(d=>({id:d.id,...d.data()}));
+      renderComments();
+      updateCommentBadge();
+    },err=>{console.error(err);});
+}
+
+function stopListeners(){
+  if(unsubTasks){unsubTasks();unsubTasks=null;}
+  if(unsubComments){unsubComments();unsubComments=null;}
+}
+
+function setSyncStatus(state,label){
+  const dot=document.getElementById('syncDot');
+  dot.className='sync-dot'+' '+state;
+  document.getElementById('syncLabel').textContent=label;
+}
+
+// ═══════════════════════════════════
+// DEMO MODE (localStorage fallback)
+// ═══════════════════════════════════
+function loadDemoTasks(code){
+  try{return JSON.parse(lsGet('ea_tasks_'+code)||'[]');}catch(e){return[];}
+}
+function loadDemoComments(code){
+  try{return JSON.parse(lsGet('ea_comments_'+code)||'[]');}catch(e){return[];}
+}
+function saveDemoTasks(){lsSet('ea_tasks_'+wsCode,JSON.stringify(tasks));}
+function saveDemoComments(){lsSet('ea_comments_'+wsCode,JSON.stringify(comments));}
+
+// ═══════════════════════════════════
+// TASK CRUD
+// ═══════════════════════════════════
+async function addTaskToDb(obj){
+  if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('tasks').doc(obj.id).set(obj);}
+  else{tasks.push(obj);saveDemoTasks();render();}
+}
+async function updateTaskInDb(obj){
+  if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('tasks').doc(obj.id).set(obj);}
+  else{const i=tasks.findIndex(t=>t.id===obj.id);if(i>=0)tasks[i]=obj;saveDemoTasks();render();}
+}
+async function deleteTaskFromDb(id){
+  if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('tasks').doc(id).delete();}
+  else{tasks=tasks.filter(t=>t.id!==id);saveDemoTasks();render();}
+}
+
+// ═══════════════════════════════════
+// COMMENT CRUD
+// ═══════════════════════════════════
+async function postComment(){
+  const text=document.getElementById('commentInput').value.trim();
+  if(!text) return;
+  const obj={
+    id:uid(), text, author:currentUser.name, role:currentUser.role,
+    taskId:commentTaskId||null,
+    taskName:commentTaskId?(tasks.find(t=>t.id===commentTaskId)?.task||null):null,
+    ts:Date.now()
+  };
+  document.getElementById('commentInput').value='';
+  if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('comments').doc(obj.id).set(obj);}
+  else{comments.push(obj);saveDemoComments();renderComments();}
+  toast('Comment posted');
+}
+
+function clearCommentTask(){commentTaskId=null;document.getElementById('commentTaskRef').innerHTML='Commenting on: <strong>General</strong>';document.getElementById('clearTaskRef').style.display='none';}
+
+function openCommentForTask(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  commentTaskId=id;
+  switchTab('comments');
+  document.getElementById('commentTaskRef').innerHTML=`Commenting on: <strong>${t.task}</strong> <button class="ab" onclick="clearCommentTask()" id="clearTaskRef">✕ Clear</button>`;
+  document.getElementById('commentInput').focus();
+}
+
+function renderComments(){
+  const list=document.getElementById('commentsList');
+  if(!comments.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">No comments yet. Start the conversation.</div>';return;}
+  list.innerHTML=[...comments].reverse().map(c=>`
+    <div class="comment-item">
+      <div class="comment-meta">
+        <span class="comment-author">${c.author||'Unknown'}</span>
+        <span class="comment-role">${c.role==='ea'?'EA':'Client'}</span>
+        <span class="comment-time">${formatTime(c.ts)}</span>
+      </div>
+      <div class="comment-text">${escHtml(c.text)}</div>
+      ${c.taskName?`<div class="comment-task-ref">📌 Re: ${escHtml(c.taskName)}</div>`:''}
+    </div>`).join('');
+}
+
+function updateCommentBadge(){
+  const badge=document.getElementById('commentBadge');
+  const n=comments.length;
+  if(n>0){badge.textContent=n;badge.style.display='';}
+  else badge.style.display='none';
+}
+
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function formatTime(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleDateString('en-PH',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});}
+
+// ═══════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════
+function dlClass(d){if(!d)return'ok';const now=new Date();now.setHours(0,0,0,0);const dl=new Date(d);dl.setHours(0,0,0,0);const diff=(dl-now)/86400000;if(diff<0)return'overdue';if(diff===0)return'today';if(diff<=3)return'soon';return'ok';}
+function dlLabel(d){if(!d)return'—';const now=new Date();now.setHours(0,0,0,0);const dl=new Date(d);dl.setHours(0,0,0,0);const diff=(dl-now)/86400000;const fmt=dl.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});if(diff<0)return fmt+' ⚠';if(diff===0)return'Today';if(diff===1)return'Tomorrow';return fmt;}
+function statusPill(s){const m={'To Do':'p-todo','In Progress':'p-ip','For Review':'p-rv','Done':'p-dn'};return`<span class="pill ${m[s]||''}">● ${s}</span>`;}
+function prioSpan(p){const c={Urgent:'pu',High:'ph',Normal:'pn',Low:'pl'};return`<span class="prio ${c[p]||'pn'}">${p}</span>`;}
+function pBar(v){v=parseInt(v)||0;const col=v===100?'var(--done)':v>=60?'var(--inprog)':v>=30?'var(--review)':'var(--todo)';return`<div class="pc"><span style="font-size:11px;color:var(--muted)">${v}%</span><div class="pb"><div class="pf" style="width:${v}%;background:${col}"></div></div></div>`;}
+function prioBCls(p){return{Urgent:'pu2',High:'ph2',Normal:'pn2',Low:'pl2'}[p]||'pn2';}
+function pillStyle(s){if(s==='To Do')return'background:rgba(41,128,185,.15);color:var(--todo)';if(s==='In Progress')return'background:rgba(39,174,96,.15);color:var(--inprog)';if(s==='For Review')return'background:rgba(212,130,10,.15);color:var(--review)';return'background:rgba(142,68,173,.15);color:var(--done)';}
+
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function updateStats(){
+  const c={'To Do':0,'In Progress':0,'For Review':0,'Done':0};
+  tasks.forEach(t=>{if(c[t.status]!==undefined)c[t.status]++;});
+  document.getElementById('cnt-all').textContent=tasks.length;
+  document.getElementById('cnt-todo').textContent=c['To Do'];
+  document.getElementById('cnt-ip').textContent=c['In Progress'];
+  document.getElementById('cnt-rv').textContent=c['For Review'];
+  document.getElementById('cnt-dn').textContent=c['Done'];
+}
+function updateCatFilter(){
+  const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
+  const sel=document.getElementById('catFilter');const cur=sel.value;
+  sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if(cur)sel.value=cur;
+  document.getElementById('cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+}
+function updateOverdue(){
+  const now=new Date();now.setHours(0,0,0,0);
+  const ov=tasks.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now);
+  const b=document.getElementById('overdueBanner');
+  if(ov.length){document.getElementById('overdueText').textContent=`${ov.length} overdue task${ov.length>1?'s':''} — action needed.`;b.classList.add('show');}
+  else b.classList.remove('show');
+}
+
+function getFiltered(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const p=document.getElementById('prioFilter').value;
+  const c=document.getElementById('catFilter').value;
+  return tasks.filter(t=>{
+    if(activeSF!=='all'&&t.status!==activeSF)return false;
+    if(q&&!t.task.toLowerCase().includes(q)&&!(t.notes||'').toLowerCase().includes(q)&&!(t.assignee||'').toLowerCase().includes(q))return false;
+    if(p&&t.priority!==p)return false;
+    if(c&&t.category!==c)return false;
+    return true;
+  });
+}
+function sortTasks(list){
+  return[...list].sort((a,b)=>{
+    let av=a[sortField]||'',bv=b[sortField]||'';
+    if(sortField==='priority'){av=PRIO_ORDER[av]??99;bv=PRIO_ORDER[bv]??99;}
+    if(sortField==='progress'){av=parseInt(av)||0;bv=parseInt(bv)||0;}
+    if(av<bv)return-1*sortDir;if(av>bv)return 1*sortDir;return 0;
+  });
+}
+function updateSortArrows(){
+  ['task','category','status','priority','deadline','progress'].forEach(f=>{
+    const th=document.getElementById('th-'+f);if(!th)return;
+    th.classList.toggle('sorted',f===sortField);
+    const a=th.querySelector('.sa');if(a)a.textContent=f===sortField?(sortDir===1?'▲':'▼'):'';
+  });
+}
+
+function render(){
+  updateStats();updateCatFilter();updateOverdue();
+  ['all','todo','ip','rv','dn'].forEach(k=>document.getElementById('stat-'+k).classList.remove('active'));
+  const sm={all:'all','To Do':'todo','In Progress':'ip','For Review':'rv','Done':'dn'};
+  if(sm[activeSF])document.getElementById('stat-'+sm[activeSF]).classList.add('active');
+  if(activeTab==='week'){renderWeek();return;}
+  if(activeTab==='comments'){renderComments();return;}
+  const filtered=sortTasks(getFiltered());updateSortArrows();
+  const tbody=document.getElementById('taskBody');
+  const empty=document.getElementById('emptyState');
+  if(!filtered.length){tbody.innerHTML='';empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    tbody.innerHTML=filtered.map(t=>{
+      const dc=dlClass(t.deadline);const isOv=dc==='overdue'&&t.status!=='Done';
+      return`<tr class="${isOv?'ov':''}" onclick="editTask('${t.id}')">
+        <td class="tn">${escHtml(t.task)}<small>${t.assignee?'👤 '+escHtml(t.assignee):''}${t.notes?' · '+escHtml(t.notes.slice(0,40))+(t.notes.length>40?'…':''):''}</small></td>
+        <td>${t.category?`<span class="ct">${escHtml(t.category)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+        <td>${statusPill(t.status)}</td><td>${prioSpan(t.priority)}</td>
+        <td><span class="dl ${dc}">${dlLabel(t.deadline)}</span></td>
+        <td>${pBar(t.progress)}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next</button>
+          <button class="ab" onclick="openCommentForTask('${t.id}')" title="Comment on this task">💬</button>
+          <button class="ab del" onclick="deleteTask('${t.id}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('cardList').innerHTML=filtered.map(t=>{
+    const dc=dlClass(t.deadline);const isOv=dc==='overdue'&&t.status!=='Done';
+    return`<div class="tc ${isOv?'ov':''}" onclick="editTask('${t.id}')">
+      <div class="tc-top"><div class="tc-name">${escHtml(t.task)}</div>${prioSpan(t.priority)}</div>
+      <div class="tc-meta">${statusPill(t.status)}${t.category?`<span class="ct">${escHtml(t.category)}</span>`:''}<span class="dl ${dc}">${dlLabel(t.deadline)}</span></div>
+      ${t.notes?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${escHtml(t.notes.slice(0,80))}${t.notes.length>80?'…':''}</div>`:''}
+      ${pBar(t.progress)}
+      <div class="tc-actions" style="margin-top:8px" onclick="event.stopPropagation()">
+        <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next Status</button>
+        <button class="ab" onclick="openCommentForTask('${t.id}')">💬 Comment</button>
+        <button class="ab del" onclick="deleteTask('${t.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── WEEKLY ──
+function getWeekStart(offset){const now=new Date();now.setHours(0,0,0,0);now.setDate(now.getDate()-now.getDay()+offset*7);return new Date(now);}
+function dStr(d){return d.toISOString().slice(0,10);}
+
+function renderWeek(){
+  const ws2=getWeekStart(weekOffset);
+  const days=Array.from({length:7},(_,i)=>{const d=new Date(ws2);d.setDate(d.getDate()+i);return d;});
+  const todayKey=todayStr();
+  const fmt=d=>d.toLocaleDateString('en-PH',{month:'short',day:'numeric'});
+  document.getElementById('weekRangeLabel').textContent=`${fmt(days[0])} – ${fmt(days[6])}, ${days[0].getFullYear()}`;
+  const byDay={};days.forEach(d=>{byDay[dStr(d)]=[];});
+  tasks.forEach(t=>{if(t.deadline&&byDay[t.deadline]!==undefined)byDay[t.deadline].push(t);});
+  Object.keys(byDay).forEach(k=>{byDay[k].sort((a,b)=>(PRIO_ORDER[a.priority]??99)-(PRIO_ORDER[b.priority]??99));});
+  const mx=Math.max(1,...Object.values(byDay).map(a=>a.length));
+  function tc2(t){const next=STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length];return`<div class="dtc ${prioBCls(t.priority)} ${t.status==='Done'?'done-fade':''}" onclick="editTask('${t.id}')"><div class="dtc-name">${escHtml(t.task)}</div><div class="dtc-foot"><span class="dtc-pill" style="${pillStyle(t.status)}">${t.status}</span><button class="dtc-cyc" onclick="event.stopPropagation();cycleStatus('${t.id}')" title="→ ${next}">↻</button></div></div>`;}
+  document.getElementById('weekGrid').innerHTML=days.map(d=>{
+    const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];
+    const lp=Math.round((dt.length/mx)*100);const lc=lp>80?'var(--danger)':lp>50?'var(--warn)':'var(--accent)';
+    return`<div class="day-col${isT?' is-today':''}"><div class="day-hdr${isT?' is-today':''}"><div class="day-name">${DS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-load-bar"><div class="day-load-fill" style="width:${dt.length?lp:0}%;background:${lc}"></div></div><div class="day-count-lbl">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</div></div><div class="day-tasks">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">—</div>'}</div></div>`;
+  }).join('');
+  document.getElementById('weekMobile').innerHTML=days.map(d=>{
+    const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];const id='wmd-'+key;
+    return`<div class="wm-day${isT?' is-today':''}"><div class="wm-day-hdr" onclick="toggleWmDay('${id}')"><div class="wm-day-left"><span class="wm-day-name">${DF[d.getDay()]}</span><span class="wm-day-date">${d.toLocaleDateString('en-PH',{month:'short',day:'numeric'})}</span></div><span class="wm-badge">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</span></div><div class="wm-tasks${isT?'':' collapsed'}" id="${id}">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">No tasks due</div>'}</div></div>`;
+  }).join('');
+  const noDl=tasks.filter(t=>!t.deadline&&t.status!=='Done').sort((a,b)=>(PRIO_ORDER[a.priority]??99)-(PRIO_ORDER[b.priority]??99));
+  const sc=noDlExp?noDl.length:Math.min(6,noDl.length);
+  document.getElementById('noDlGrid').innerHTML=noDl.length
+    ?noDl.slice(0,sc).map(t=>`<div class="no-dl-card" onclick="editTask('${t.id}')">${prioSpan(t.priority)}<span style="font-size:12px;flex:1">${escHtml(t.task)}</span>${statusPill(t.status)}</div>`).join('')+(noDl.length>6?`<button class="show-more-btn" onclick="noDlExp=!noDlExp;renderWeek()">${noDlExp?'▲ Show less':'▼ Show '+(noDl.length-6)+' more'}</button>`:'')
+    :'<span style="color:var(--muted);font-size:12px">All tasks have deadlines set.</span>';
+}
+
+function toggleWmDay(id){const el=document.getElementById(id);if(el)el.classList.toggle('collapsed');}
+function shiftWeek(dir){weekOffset=dir===0?0:weekOffset+dir;renderWeek();}
+
+// ── ACTIONS ──
+function filterStatus(s){activeSF=s;render();}
+function sortBy(f){if(sortField===f)sortDir=-sortDir;else{sortField=f;sortDir=1;}render();}
+
+async function cycleStatus(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const i=STATUSES.indexOf(t.status);
+  const updated={...t,status:STATUSES[(i+1)%STATUSES.length]};
+  if(updated.status==='Done')updated.progress=100;
+  else if(updated.progress===100)updated.progress=90;
+  await updateTaskInDb(updated);
+  toast('Status → '+updated.status);
+}
+
+async function deleteTask(id){
+  if(!confirm('Delete this task?'))return;
+  await deleteTaskFromDb(id);
+  toast('Task deleted');
+}
+
+// ── TASK MODAL ──
+function onProgressChange(){
+  const v=parseInt(document.getElementById('f-progress').value)||0;
+  const se=document.getElementById('f-status');const note=document.getElementById('consistencyNote');
+  if(v===100&&se.value!=='Done'){se.value='Done';note.textContent='✅ Progress 100% — status auto-set to Done.';note.classList.add('show');}
+  else if(v<100&&se.value==='Done'){se.value='In Progress';note.textContent='ℹ️ Progress below 100% — status changed.';note.classList.add('show');}
+  else note.classList.remove('show');
+}
+function onStatusChange(){
+  const s=document.getElementById('f-status').value;const note=document.getElementById('consistencyNote');
+  if(s==='Done'){document.getElementById('f-progress').value=100;note.textContent='✅ Status Done — progress auto-set to 100%.';note.classList.add('show');}
+  else note.classList.remove('show');
+}
+
+function openModal(id){
+  editId=id||null;const t=id?tasks.find(x=>x.id===id):null;
+  document.getElementById('modalTitle').textContent=id?'Edit Task':'New Task';
+  document.getElementById('modalSub').textContent=id?'Update task details.':'Add a new task to the board.';
+  ['task','notes','category','assignee'].forEach(f=>document.getElementById('f-'+f).value=t?(t[f]||''):'');
+  document.getElementById('f-status').value=t?t.status:'To Do';
+  document.getElementById('f-priority').value=t?t.priority:'Normal';
+  document.getElementById('f-deadline').value=t?(t.deadline||''):'';
+  document.getElementById('f-progress').value=t?(t.progress||0):0;
+  document.getElementById('progressHint').textContent='';
+  document.getElementById('consistencyNote').classList.remove('show');
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(()=>document.getElementById('f-task').focus(),100);
+}
+function editTask(id){openModal(id);}
+function closeModal(){document.getElementById('modalBg').classList.remove('open');editId=null;}
+
+async function saveTask(){
+  const task=document.getElementById('f-task').value.trim();
+  if(!task){alert('Task name is required.');return;}
+  let progress=Math.min(100,Math.max(0,parseInt(document.getElementById('f-progress').value)||0));
+  let status=document.getElementById('f-status').value;
+  if(status==='Done')progress=100;if(progress===100)status='Done';
+  const obj={
+    id:editId||uid(),task,
+    notes:document.getElementById('f-notes').value.trim(),
+    category:document.getElementById('f-category').value.trim(),
+    assignee:document.getElementById('f-assignee').value.trim(),
+    status,priority:document.getElementById('f-priority').value,
+    deadline:document.getElementById('f-deadline').value,progress,
+    createdBy:currentUser.role,
+    created:editId?(tasks.find(t=>t.id===editId)?.created||todayStr()):todayStr()
+  };
+  if(editId)await updateTaskInDb(obj);else await addTaskToDb(obj);
+  closeModal();toast(editId?'Task updated!':'Task added!');
+}
+
+function switchTab(tab){
+  activeTab=tab;
+  ['list','week','comments'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+    const v=document.getElementById('view-'+t);if(v)v.classList.toggle('active',t===tab);
+  });
+  document.getElementById('listToolbar').style.display=tab==='list'?'flex':'none';
+  if(tab==='week')renderWeek();
+  else if(tab==='comments')renderComments();
+  else render();
+}
+
+// ── CHANGE / FORGOT PIN ──
+function openChangePIN(){
+  ['cp-current','cp-new','cp-confirm'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cp-err').textContent='';
+  document.getElementById('changePinBg').classList.add('open');
+}
+function closeChangePIN(){document.getElementById('changePinBg').classList.remove('open');}
+async function saveChangePIN(){
+  const cur=document.getElementById('cp-current').value;
+  const np=document.getElementById('cp-new').value;
+  const nc=document.getElementById('cp-confirm').value;
+  const errEl=document.getElementById('cp-err');
+  const myPinKey=currentUser.role==='ea'?'pinEA':'pinClient';
+  if(djb2(cur)!==wsData[myPinKey]){errEl.textContent='Current PIN is incorrect.';return;}
+  if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
+  if(WEAK.includes(np)){errEl.textContent='PIN too simple.';return;}
+  if(np!==nc){errEl.textContent='New PINs do not match.';return;}
+  if(np===cur){errEl.textContent='New PIN must differ from current.';return;}
+  wsData[myPinKey]=djb2(np);
+  if(!demoMode&&db)await db.collection('workspaces').doc(wsCode).update({[myPinKey]:wsData[myPinKey]});
+  else lsSet('ea_ws_'+wsCode,JSON.stringify(wsData));
+  closeChangePIN();toast('PIN updated!');
+}
+
+function openForgotFlow(){
+  ['fp-phrase','fp-newpin','fp-confirm'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fp-err').textContent='';
+  document.getElementById('forgotBg').classList.add('open');
+}
+function closeForgot(){document.getElementById('forgotBg').classList.remove('open');}
+async function saveForgotPIN(){
+  const phrase=document.getElementById('fp-phrase').value.trim();
+  const np=document.getElementById('fp-newpin').value;
+  const nc=document.getElementById('fp-confirm').value;
+  const errEl=document.getElementById('fp-err');
+  if(djb2(phrase.toLowerCase().trim())!==wsData.phrase){errEl.textContent='Passphrase does not match.';return;}
+  if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
+  if(WEAK.includes(np)){errEl.textContent='PIN too simple.';return;}
+  if(np!==nc){errEl.textContent='PINs do not match.';return;}
+  // Reset EA pin (phrase is EA-only)
+  wsData.pinEA=djb2(np);
+  if(!demoMode&&db)await db.collection('workspaces').doc(wsCode).update({pinEA:wsData.pinEA});
+  else lsSet('ea_ws_'+wsCode,JSON.stringify(wsData));
+  closeForgot();
+  document.getElementById('lockScreen').classList.remove('show');
+  bootApp(wsCode,'ea');
+  toast('PIN reset. Welcome back!');
+}
+
+// ── EXPORT ──
+function exportCSV(){
+  const header=['Task','Category','Assignee','Status','Priority','Deadline','Progress','Notes','Created'];
+  const rows=tasks.map(t=>[`"${(t.task||'').replace(/"/g,'""')}"`,`"${(t.category||'').replace(/"/g,'""')}"`,`"${(t.assignee||'').replace(/"/g,'""')}"`,t.status,t.priority,t.deadline||'',(t.progress||0)+'%',`"${(t.notes||'').replace(/"/g,'""')}"`,t.created||'']);
+  const csv=[header.join(','),...rows.map(r=>r.join(','))].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=`Tasks_${wsCode}_${todayStr()}.csv`;a.click();
+  toast('CSV exported');
+}
+
+// ── TOAST ──
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2700);}
+
+// ═══════════════════════════════════
+// INIT — decide which screen to show
+// ═══════════════════════════════════
+async function init(){
+  const lastCode=lsGet('ea_last_code');
+  const lastRole=lsGet('ea_last_role');
+  const fbCfg=lsGet('ea_fb_cfg');
+  const isDemo=lsGet('ea_demo')==='1';
+
+  if(isDemo) demoMode=true;
+
+  // Restore Firebase if config saved
+  if(!isDemo&&fbCfg){
+    try{const cfg=JSON.parse(fbCfg);initFirebase(cfg);}catch(e){}
+  }
+
+  if(lastCode){
+    // Try to load workspace
+    let ws=null;
+    if(!isDemo&&db){
+      try{const doc=await db.collection('workspaces').doc(lastCode).get();if(doc.exists)ws=doc.data();}
+      catch(e){}
+    }
+    if(!ws){const local=lsGet('ea_ws_'+lastCode);if(local)try{ws=JSON.parse(local);}catch(e){}}
+    if(ws){
+      wsData=ws;wsCode=lastCode;
+      showLock(ws,lastCode);
+      return;
+    }
+  }
+
+  // No saved workspace — show join screen
+  document.getElementById('joinScreen').classList.add('show');
+}
+
+// Keyboard support on lock screen
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('lockScreen').classList.contains('show')){
+    if(e.key>='0'&&e.key<='9')pinPress(e.key);
+    else if(e.key==='Backspace')pinBack();
+    else if(e.key==='Escape')pinClear();
+    return;
+  }
+  if(e.key==='Escape'){closeModal();closeChangePIN();closeForgot();}
+});
+
+// Close modals on backdrop click
+['modalBg','changePinBg','forgotBg'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+});
+
+init();
+</script>
+</body>
+</html>
