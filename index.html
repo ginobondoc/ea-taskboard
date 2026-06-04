@@ -790,17 +790,21 @@ function savePINSetup(){
 }
 
 async function finishSetup(){
-  // Always save to localStorage as backup
+  // Always save full data to localStorage (including logo)
   lsSet('ea_ws_'+wsCode, JSON.stringify(wsData));
   lsSet('ea_last_code', wsCode);
   lsSet('ea_last_role','ea');
 
-  // Also save to Firebase if available
+  // Save to Firebase — strip logo to avoid size limits
   if(!demoMode&&db){
     try{
-      await db.collection('workspaces').doc(wsCode).set(wsData);
+      const fbData={...wsData};
+      delete fbData.logo; // logo stored locally only — too large for Firestore
+      await db.collection('workspaces').doc(wsCode).set(fbData);
+      console.log('Workspace saved to Firebase:', wsCode);
     }catch(e){
-      console.warn('Firebase save failed, using local fallback:',e);
+      console.error('Firebase save error:',e);
+      alert('Warning: Could not save workspace to Firebase cloud. The app will work on this browser only. Error: '+e.message);
     }
   }
 
@@ -875,7 +879,9 @@ async function joinWorkspace(){
 
   lsSet('ea_last_code',code);
   lsSet('ea_last_role',role);
-  if(!demoMode&&db){const cfg=JSON.parse(lsGet('ea_fb_cfg')||'{}');if(cfg.apiKey)initFirebase(cfg);}
+  // Restore logo from localStorage if available
+  const localWs=lsGet('ea_ws_'+code);
+  if(localWs){try{const lws=JSON.parse(localWs);if(lws.logo)ws.logo=lws.logo;}catch(e){}}
   document.getElementById('joinScreen').classList.remove('show');
   wsData=ws; wsCode=code;
   bootApp(code,role);
