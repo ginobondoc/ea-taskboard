@@ -443,6 +443,13 @@ td{padding:12px;vertical-align:middle;}
       <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="startSetup()">Set Up New Workspace →</button>
     </div>
     <div id="joinExisting" style="display:none;">
+      <div id="j-fb-section" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">Firebase Config Required</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">First-time on this browser? Enter your Firebase config so the app can connect to your workspace.</div>
+        <div class="fg"><label>API Key</label><input type="text" id="j-apikey" placeholder="AIzaSy..."></div>
+        <div class="fg"><label>Project ID</label><input type="text" id="j-projectid" placeholder="talentpop-ea-taskboard"></div>
+        <div class="fg"><label>App ID</label><input type="text" id="j-appid" placeholder="1:423..."></div>
+      </div>
       <div class="fg"><label>Workspace Code</label><input type="text" id="j-code" placeholder="e.g. MKTA7B" style="text-transform:uppercase;letter-spacing:3px;" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="fg"><label>Your PIN</label><input type="password" id="j-pin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
       <div class="err-txt" id="j-err"></div>
@@ -814,6 +821,10 @@ function switchJoinTab(t){
   document.getElementById('joinNew').style.display=t==='new'?'':'none';
   document.getElementById('joinExisting').style.display=t==='join'?'':'none';
   document.querySelectorAll('.join-tab').forEach((el,i)=>el.classList.toggle('active',(t==='new'&&i===0)||(t==='join'&&i===1)));
+  if(t==='join'){
+    const hasCfg=!!lsGet('ea_fb_cfg')||demoMode;
+    document.getElementById('j-fb-section').style.display=hasCfg?'none':'block';
+  }
 }
 
 function startSetup(){
@@ -829,13 +840,36 @@ async function joinWorkspace(){
   if(!code||code.length!==6){errEl.textContent='Enter a valid 6-character workspace code.';return;}
   if(!/^\d{4}$/.test(pin)){errEl.textContent='PIN must be 4 digits.';return;}
 
+  errEl.textContent='Looking up workspace…';
+
+  // Try to init Firebase — first from join form fields, then from saved config
+  if(!db){
+    const jApiKey=document.getElementById('j-apikey')?.value.trim();
+    const jProjectId=document.getElementById('j-projectid')?.value.trim();
+    const jAppId=document.getElementById('j-appid')?.value.trim();
+    if(jApiKey&&jProjectId&&jAppId){
+      const cfg={apiKey:jApiKey,projectId:jProjectId,appId:jAppId};
+      if(initFirebase(cfg)) lsSet('ea_fb_cfg',JSON.stringify(cfg));
+    } else {
+      const savedCfg=lsGet('ea_fb_cfg');
+      if(savedCfg){try{const cfg=JSON.parse(savedCfg);initFirebase(cfg);}catch(e){}}
+    }
+  }
+
+  // If still no db, tell user what to do
+  if(!db&&!demoMode){
+    errEl.textContent='Firebase config required. Fill in the API Key, Project ID, and App ID fields above.';
+    document.getElementById('j-fb-section').style.display='block';
+    return;
+  }
+
   let ws=null;
   if(!demoMode&&db){
     try{const doc=await db.collection('workspaces').doc(code).get();if(doc.exists)ws=doc.data();}
-    catch(e){}
+    catch(e){errEl.textContent='Connection error. Check your internet and try again.';console.error(e);return;}
   }
-  if(!ws){const local=lsGet('ea_ws_'+code);if(local)ws=JSON.parse(local);}
-  if(!ws){errEl.textContent='Workspace not found. Check the code.';return;}
+  if(!ws){const local=lsGet('ea_ws_'+code);if(local)try{ws=JSON.parse(local);}catch(e){}}
+  if(!ws){errEl.textContent='Workspace not found. Double-check the code — it is case-sensitive and 6 characters.';return;}
 
   const pinH=djb2(pin);
   let role='';
