@@ -677,7 +677,7 @@ td{padding:12px;vertical-align:middle;}
 // ═══════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════
-const WEAK=['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','0123','9876','1122','1212'];
+const WEAK=[]; // No PIN restrictions — user chooses freely
 const STATUSES=['To Do','In Progress','For Review','Done'];
 const PRIO_ORDER={Urgent:0,High:1,Normal:2,Low:3};
 const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -780,13 +780,13 @@ function savePINSetup(){
   const clientPin2=document.getElementById('pin-client2').value;
   const errEl=document.getElementById('pin-err');
   if(!/^\d{4}$/.test(eaPin)){errEl.textContent='Your PIN must be exactly 4 digits.';return;}
-  if(WEAK.includes(eaPin)){errEl.textContent='Your PIN is too simple. Try something less predictable.';return;}
+
   if(eaPin!==eaPin2){errEl.textContent='Your PINs do not match.';return;}
   if(phrase.length<4){errEl.textContent='Recovery passphrase must be at least 4 characters.';return;}
   if(!/^\d{4}$/.test(clientPin)){errEl.textContent='Client PIN must be exactly 4 digits.';return;}
-  if(WEAK.includes(clientPin)){errEl.textContent='Client PIN is too simple.';return;}
+
   if(clientPin!==clientPin2){errEl.textContent='Client PINs do not match.';return;}
-  if(clientPin===eaPin){errEl.textContent='Client PIN must be different from your PIN.';return;}
+  // Same PIN allowed — both EA and client can use the same PIN if preferred
 
   wsCode=genCode();
   wsData.code=wsCode;
@@ -1334,9 +1334,9 @@ async function saveChangePIN(){
   const myPinKey=currentUser.role==='ea'?'pinEA':'pinClient';
   if(djb2(cur)!==wsData[myPinKey]){errEl.textContent='Current PIN is incorrect.';return;}
   if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
-  if(WEAK.includes(np)){errEl.textContent='PIN too simple.';return;}
+
   if(np!==nc){errEl.textContent='New PINs do not match.';return;}
-  if(np===cur){errEl.textContent='New PIN must differ from current.';return;}
+  // Allowing same PIN as current if user prefers
   wsData[myPinKey]=djb2(np);
   if(!demoMode&&db)await db.collection('workspaces').doc(wsCode).update({[myPinKey]:wsData[myPinKey]});
   else lsSet('ea_ws_'+wsCode,JSON.stringify(wsData));
@@ -1356,7 +1356,7 @@ async function saveForgotPIN(){
   const errEl=document.getElementById('fp-err');
   if(djb2(phrase.toLowerCase().trim())!==wsData.phrase){errEl.textContent='Passphrase does not match.';return;}
   if(!/^\d{4}$/.test(np)){errEl.textContent='New PIN must be 4 digits.';return;}
-  if(WEAK.includes(np)){errEl.textContent='PIN too simple.';return;}
+
   if(np!==nc){errEl.textContent='PINs do not match.';return;}
   // Reset EA pin (phrase is EA-only)
   wsData.pinEA=djb2(np);
