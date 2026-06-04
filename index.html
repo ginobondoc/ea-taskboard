@@ -870,7 +870,6 @@ function showLock(ws,code){
   document.getElementById('lockScreen').classList.add('show');
 }
 
-let pinBuf='';
 function updateDots(){for(let i=0;i<4;i++){const d=document.getElementById('dot'+i);d.className='pin-dot'+(i<pinBuf.length?' filled':'');}}
 function setDotsState(s){for(let i=0;i<4;i++)document.getElementById('dot'+i).className='pin-dot '+s;}
 function setMsg(m,t){const e=document.getElementById('lockMsg');e.textContent=m;e.className='lock-msg'+(t?' '+t:'');}
