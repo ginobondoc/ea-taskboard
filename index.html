@@ -443,13 +443,7 @@ td{padding:12px;vertical-align:middle;}
       <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="startSetup()">Set Up New Workspace →</button>
     </div>
     <div id="joinExisting" style="display:none;">
-      <div id="j-fb-section" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">Firebase Config Required</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">First-time on this browser? Enter your Firebase config so the app can connect to your workspace.</div>
-        <div class="fg"><label>API Key</label><input type="text" id="j-apikey" placeholder="AIzaSy..."></div>
-        <div class="fg"><label>Project ID</label><input type="text" id="j-projectid" placeholder="talentpop-ea-taskboard"></div>
-        <div class="fg"><label>App ID</label><input type="text" id="j-appid" placeholder="1:423..."></div>
-      </div>
+      <div id="j-fb-section" style="display:none;"></div>
       <div class="fg"><label>Workspace Code</label><input type="text" id="j-code" placeholder="e.g. MKTA7B" style="text-transform:uppercase;letter-spacing:3px;" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="fg"><label>Your PIN</label><input type="password" id="j-pin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
       <div class="err-txt" id="j-err"></div>
@@ -728,13 +722,9 @@ function showStep(n){
 }
 
 function saveFirebaseConfig(){
-  const apiKey=document.getElementById('fc-apiKey').value.trim();
-  const projectId=document.getElementById('fc-projectId').value.trim();
-  const appId=document.getElementById('fc-appId').value.trim();
-  const errEl=document.getElementById('fc-err');
-  if(!apiKey||!projectId||!appId){errEl.textContent='All three fields are required.';return;}
-  const cfg={apiKey,projectId,appId};
-  if(!initFirebase(cfg)){errEl.textContent='Could not connect to Firebase. Check your config values.';return;}
+  // Use default config — auto skip to step 2
+  const cfg=DEFAULT_FB_CFG;
+  if(!db) initFirebase(cfg);
   lsSet('ea_fb_cfg',JSON.stringify(cfg));
   showStep(2);
 }
@@ -835,7 +825,8 @@ function switchJoinTab(t){
 function startSetup(){
   document.getElementById('joinScreen').classList.remove('show');
   document.getElementById('setupScreen').classList.add('show');
-  showStep(1);
+  // Firebase config is hardcoded — skip straight to workspace profile
+  saveFirebaseConfig();
 }
 
 async function joinWorkspace(){
@@ -1388,6 +1379,13 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 // ═══════════════════════════════════
 // INIT — decide which screen to show
 // ═══════════════════════════════════
+// ── DEFAULT FIREBASE CONFIG (TalentPop-EA-Taskboard) ──
+const DEFAULT_FB_CFG={
+  apiKey:'AIzaSyCimPPZZR4Rl3pGIJpQo9rUUP7GYPneOm8',
+  projectId:'talentpop-ea-taskboard',
+  appId:'1:423770341498:web:bec4933a9239b8c56bbbc3'
+};
+
 async function init(){
   const lastCode=lsGet('ea_last_code');
   const lastRole=lsGet('ea_last_role');
@@ -1396,9 +1394,14 @@ async function init(){
 
   if(isDemo) demoMode=true;
 
-  // Restore Firebase if config saved
-  if(!isDemo&&fbCfg){
-    try{const cfg=JSON.parse(fbCfg);initFirebase(cfg);}catch(e){}
+  // Always init Firebase — use saved config or fall back to default
+  if(!isDemo){
+    try{
+      const cfg=fbCfg?JSON.parse(fbCfg):DEFAULT_FB_CFG;
+      initFirebase(cfg);
+      // Save default config if not already saved
+      if(!fbCfg) lsSet('ea_fb_cfg',JSON.stringify(DEFAULT_FB_CFG));
+    }catch(e){console.warn('Firebase init error:',e);}
   }
 
   if(lastCode){
