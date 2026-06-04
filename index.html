@@ -800,17 +800,22 @@ function savePINSetup(){
 }
 
 async function finishSetup(){
-  // Save to Firebase or localStorage demo
+  // Always save to localStorage as backup
+  lsSet('ea_ws_'+wsCode, JSON.stringify(wsData));
+  lsSet('ea_last_code', wsCode);
+  lsSet('ea_last_role','ea');
+
+  // Also save to Firebase if available
   if(!demoMode&&db){
     try{
       await db.collection('workspaces').doc(wsCode).set(wsData);
-    }catch(e){toast('⚠ Could not save to Firebase. Check connection.');return;}
-  } else {
-    lsSet('ea_ws_'+wsCode, JSON.stringify(wsData));
+    }catch(e){
+      console.warn('Firebase save failed, using local fallback:',e);
+    }
   }
-  lsSet('ea_last_code', wsCode);
-  lsSet('ea_last_role','ea');
+
   document.getElementById('setupScreen').classList.remove('show');
+  document.getElementById('joinScreen').classList.remove('show');
   bootApp(wsCode,'ea');
 }
 
