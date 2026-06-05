@@ -660,6 +660,39 @@ td{padding:12px;vertical-align:middle;}
       </div>
     </div>
   </div>
+
+  <!-- ADMIN DASHBOARD -->
+  <div id="adminDashboard" style="display:none;padding:20px 28px 40px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--accent);">All EA Workspaces</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">Click any row to view that EA's full board</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="adminSearch" placeholder="Search EAs or clients..." oninput="renderAdmin()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;width:220px;">
+        <button class="btn btn-ghost" onclick="refreshAdmin()">&#8635; Refresh</button>
+      </div>
+    </div>
+    <div id="adminStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px;"></div>
+    <div id="adminEAList"></div>
+    <!-- Drill-down panel -->
+    <div id="adminDrillDown" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+        <button class="btn btn-ghost" onclick="closeAdminDrill()" style="font-size:12px;">&#8592; Back to Dashboard</button>
+        <div id="adminDrillTitle" style="font-size:15px;font-weight:600;color:var(--accent);"></div>
+      </div>
+      <div id="adminDrillTasks" style="margin-bottom:24px;"></div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Comments</div>
+        <div id="adminDrillComments" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <textarea id="adminCommentInput" placeholder="Add a comment as admin..." style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;outline:none;resize:none;min-height:60px;transition:border-color .2s;"></textarea>
+          <button class="btn btn-primary" onclick="postAdminComment()">Post</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ---------- MODALS ---------- -->
@@ -672,7 +705,16 @@ td{padding:12px;vertical-align:middle;}
     <div class="fr full"><div class="fg"><label>Task Name *</label><input type="text" id="f-task" placeholder="e.g. Send weekly report to client"></div></div>
     <div class="fr full"><div class="fg"><label>Notes / Description</label><textarea id="f-notes" placeholder="Any context…"></textarea></div></div>
     <div class="fr">
-      <div class="fg"><label>Category</label><input type="text" id="f-category" list="cat-list" placeholder="Admin, Comms…"><datalist id="cat-list"></datalist></div>
+      <div class="fg"><label>Category</label>
+        <select id="f-category">
+          <option value="">-- Select Category --</option>
+          <option value="Admin">Admin</option>
+          <option value="Client">Client</option>
+          <option value="Operations">Operations</option>
+          <option value="Finance">Finance</option>
+          <option value="Projects">Projects</option>
+        </select>
+      </div>
       <div class="fg"><label>Assigned To</label><input type="text" id="f-assignee" placeholder="Name or initials"></div>
     </div>
     <div class="fr">
