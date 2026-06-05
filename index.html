@@ -307,7 +307,7 @@ td{padding:12px;vertical-align:middle;}
 </head>
 <body>
 
-<!-- ══════════ SETUP / ONBOARDING ══════════ -->
+<!-- ---------- SETUP / ONBOARDING ---------- -->
 <div id="setupScreen">
 <div class="setup-wrap">
   <div class="setup-brand">
@@ -429,7 +429,7 @@ td{padding:12px;vertical-align:middle;}
 </div>
 </div>
 
-<!-- ══════════ JOIN SCREEN ══════════ -->
+<!-- ---------- JOIN SCREEN ---------- -->
 <div id="joinScreen">
   <div class="join-card">
     <h1>EA TaskBoard</h1>
@@ -453,7 +453,7 @@ td{padding:12px;vertical-align:middle;}
   </div>
 </div>
 
-<!-- ══════════ LOCK SCREEN ══════════ -->
+<!-- ---------- LOCK SCREEN ---------- -->
 <div id="lockScreen">
   <div class="lock-brand">
     <h1 id="lockWsName">TaskBoard</h1>
@@ -494,7 +494,7 @@ td{padding:12px;vertical-align:middle;}
   </div>
 </div>
 
-<!-- ══════════ MAIN APP ══════════ -->
+<!-- ---------- MAIN APP ---------- -->
 <div id="app">
   <div class="app-header">
     <div class="header-brand">
@@ -606,7 +606,7 @@ td{padding:12px;vertical-align:middle;}
   </div>
 </div>
 
-<!-- ══════════ MODALS ══════════ -->
+<!-- ---------- MODALS ---------- -->
 <!-- Task Modal -->
 <div class="modal-bg" id="modalBg">
   <div class="modal">
@@ -690,10 +690,17 @@ td{padding:12px;vertical-align:middle;}
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════
+// DEFAULT FIREBASE CONFIG
+const DEFAULT_FB_CFG={
+  apiKey:'AIzaSyCimPPZZR4Rl3pGIJpQo9rUUP7GYPneOm8',
+  projectId:'talentpop-ea-taskboard',
+  appId:'1:423770341498:web:bec4933a9239b8c56bbbc3'
+};
+
+// -----------------------------------
 // CONSTANTS & STATE
-// ═══════════════════════════════════
-const WEAK=[]; // No PIN restrictions — user chooses freely
+// -----------------------------------
+const WEAK=[]; // No PIN restrictions -- user chooses freely
 const STATUSES=['To Do','In Progress','For Review','Done'];
 const PRIO_ORDER={Urgent:0,High:1,Normal:2,Low:3};
 const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -706,9 +713,9 @@ let sortField='deadline', sortDir=1, activeSF='all', activeTab='list';
 let editId=null, failCount=0, pinBuf='';
 let demoMode=false;
 
-// ═══════════════════════════════════
+// -----------------------------------
 // HELPERS
-// ═══════════════════════════════════
+// -----------------------------------
 function djb2(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return(h>>>0).toString(36);}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -716,21 +723,21 @@ function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
 
-// ═══════════════════════════════════
+// -----------------------------------
 // FIREBASE INIT
-// ═══════════════════════════════════
+// -----------------------------------
 function initFirebase(cfg){
   try{
     if(firebase.apps.length) firebase.app().delete();
-    firebase.initializeApp({apiKey:cfg.apiKey,authDomain:`${cfg.projectId}.firebaseapp.com`,projectId:cfg.projectId,appId:cfg.appId});
+    firebase.initializeApp({apiKey:cfg.apiKey,authDomain:cfg.projectId+'.firebaseapp.com',projectId:cfg.projectId,appId:cfg.appId});
     db=firebase.firestore();
     return true;
   }catch(e){console.error('Firebase init error:',e);return false;}
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // SETUP FLOW
-// ═══════════════════════════════════
+// -----------------------------------
 let logoBase64='';
 let setupStep=1;
 
@@ -744,7 +751,7 @@ function showStep(n){
 }
 
 function saveFirebaseConfig(){
-  // Use default config — auto skip to step 2
+  // Use default config -- auto skip to step 2
   const cfg=DEFAULT_FB_CFG;
   if(!db) initFirebase(cfg);
   lsSet('ea_fb_cfg',JSON.stringify(cfg));
@@ -798,7 +805,7 @@ function savePINSetup(){
   if(!/^\d{4}$/.test(clientPin)){errEl.textContent='Client PIN must be exactly 4 digits.';return;}
 
   if(clientPin!==clientPin2){errEl.textContent='Client PINs do not match.';return;}
-  // Same PIN allowed — both EA and client can use the same PIN if preferred
+  // Same PIN allowed -- both EA and client can use the same PIN if preferred
 
   wsCode=genCode();
   wsData.code=wsCode;
@@ -817,11 +824,11 @@ async function finishSetup(){
   lsSet('ea_last_code', wsCode);
   lsSet('ea_last_role','ea');
 
-  // Save to Firebase — strip logo to avoid size limits
+  // Save to Firebase -- strip logo to avoid size limits
   if(!demoMode&&db){
     try{
       const fbData={...wsData};
-      delete fbData.logo; // logo stored locally only — too large for Firestore
+      delete fbData.logo; // logo stored locally only -- too large for Firestore
       await db.collection('workspaces').doc(wsCode).set(fbData);
       console.log('Workspace saved to Firebase:', wsCode);
     }catch(e){
@@ -838,7 +845,7 @@ async function finishSetup(){
   bootApp(wsCode,'ea');
 }
 
-// ── GOOGLE SHEETS LOGGING ──
+//    GOOGLE SHEETS LOGGING   
 async function logToEAHub(){
   const APPS_SCRIPT_URL = lsGet('ea_sheets_webhook') || '';
   if(!APPS_SCRIPT_URL) return; // No webhook set yet
@@ -866,9 +873,9 @@ async function logToEAHub(){
   }
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // JOIN FLOW
-// ═══════════════════════════════════
+// -----------------------------------
 function switchJoinTab(t){
   document.getElementById('joinNew').style.display=t==='new'?'':'none';
   document.getElementById('joinExisting').style.display=t==='join'?'':'none';
@@ -882,7 +889,7 @@ function switchJoinTab(t){
 function startSetup(){
   document.getElementById('joinScreen').classList.remove('show');
   document.getElementById('setupScreen').classList.add('show');
-  // Firebase config is hardcoded — skip straight to workspace profile
+  // Firebase config is hardcoded -- skip straight to workspace profile
   saveFirebaseConfig();
 }
 
@@ -893,9 +900,9 @@ async function joinWorkspace(){
   if(!code||code.length!==6){errEl.textContent='Enter a valid 6-character workspace code.';return;}
   if(!/^\d{4}$/.test(pin)){errEl.textContent='PIN must be 4 digits.';return;}
 
-  errEl.textContent='Looking up workspace…';
+  errEl.textContent='Looking up workspace...';
 
-  // Try to init Firebase — first from join form fields, then from saved config
+  // Try to init Firebase -- first from join form fields, then from saved config
   if(!db){
     const jApiKey=document.getElementById('j-apikey')?.value.trim();
     const jProjectId=document.getElementById('j-projectid')?.value.trim();
@@ -922,7 +929,7 @@ async function joinWorkspace(){
     catch(e){errEl.textContent='Connection error. Check your internet and try again.';console.error(e);return;}
   }
   if(!ws){const local=lsGet('ea_ws_'+code);if(local)try{ws=JSON.parse(local);}catch(e){}}
-  if(!ws){errEl.textContent='Workspace not found. Double-check the code — it is case-sensitive and 6 characters.';return;}
+  if(!ws){errEl.textContent='Workspace not found. Double-check the code -- it is case-sensitive and 6 characters.';return;}
 
   const pinH=djb2(pin);
   let role='';
@@ -940,14 +947,14 @@ async function joinWorkspace(){
   bootApp(code,role);
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // LOCK SCREEN
-// ═══════════════════════════════════
+// -----------------------------------
 function showLock(ws,code){
   wsCode=code; wsData=ws;
   document.getElementById('lockWsName').textContent=ws.clientName||'TaskBoard';
   document.getElementById('lockClientName').textContent=ws.eaName||'EA Command Center';
-  document.getElementById('lockWsEA').textContent=(ws.eaName||'EA')+' — '+(ws.eaRole||'Executive Assistant');
+  document.getElementById('lockWsEA').textContent=(ws.eaName||'EA')+' -- '+(ws.eaRole||'Executive Assistant');
   document.getElementById('lockWsClient').textContent=ws.clientName||'';
   if(ws.logo){const li=document.getElementById('lockLogo');li.src=ws.logo;li.style.display='block';}
   document.getElementById('lockTitle').textContent='Enter PIN';
@@ -986,7 +993,7 @@ function checkLockPIN(){
     setDotsState('error');
     const rem=5-failCount;
     if(rem>0) setMsg(`Incorrect PIN. ${rem} attempt${rem!==1?'s':''} left.`,'err');
-    else{setMsg('Too many attempts. Use "Forgot PIN?" to recover.','err');disablePad();// forgotLink always visible}
+    else{setMsg('Too many attempts. Use "Forgot PIN?" to recover.','err');disablePad();} // forgotLink always visible
     setTimeout(()=>{if(failCount<5){pinBuf='';updateDots();}},900);
   }
 }
@@ -997,9 +1004,9 @@ function lockApp(){
   showLock(wsData,wsCode);
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // BOOT APP
-// ═══════════════════════════════════
+// -----------------------------------
 function bootApp(code,role,fromLock=false){
   wsCode=code;
   const isEA=role==='ea';
@@ -1007,7 +1014,7 @@ function bootApp(code,role,fromLock=false){
 
   // Header
   document.getElementById('headerWsName').textContent=wsData.clientName||'TaskBoard';
-  document.getElementById('headerClientName').textContent=(wsData.eaName||'EA')+' · '+(wsData.eaRole||'Executive Assistant');
+  document.getElementById('headerClientName').textContent=(wsData.eaName||'EA')+' . '+(wsData.eaRole||'Executive Assistant');
   document.getElementById('currentUserName').textContent=currentUser.name;
   document.getElementById('currentUserRole').textContent=isEA?'EA':'Client';
   document.getElementById('wsCodeDisplay').textContent='Workspace: '+code;
@@ -1017,33 +1024,33 @@ function bootApp(code,role,fromLock=false){
   document.getElementById('addTaskBtn').style.display='';
 
   document.getElementById('app').classList.add('show');
-  setSyncStatus('syncing','Connecting…');
+  setSyncStatus('syncing','Connecting...');
 
   if(!demoMode&&db){
     startListeners(code);
   } else {
-    // Demo mode — localStorage
+    // Demo mode -- localStorage
     tasks=loadDemoTasks(code);
     comments=loadDemoComments(code);
-    setSyncStatus('live','Demo mode — data saved locally');
+    setSyncStatus('live','Demo mode -- data saved locally');
     render(); renderComments();
   }
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // FIREBASE REAL-TIME LISTENERS
-// ═══════════════════════════════════
+// -----------------------------------
 function startListeners(code){
   stopListeners();
-  setSyncStatus('syncing','Connecting…');
+  setSyncStatus('syncing','Connecting...');
 
   unsubTasks=db.collection('workspaces').doc(code).collection('tasks')
     .orderBy('created','asc')
     .onSnapshot(snap=>{
       tasks=snap.docs.map(d=>({id:d.id,...d.data()}));
-      setSyncStatus('live','Live — syncing across all devices');
+      setSyncStatus('live','Live -- syncing across all devices');
       render();
-    },err=>{setSyncStatus('error','Sync error — check connection');console.error(err);});
+    },err=>{setSyncStatus('error','Sync error -- check connection');console.error(err);});
 
   unsubComments=db.collection('workspaces').doc(code).collection('comments')
     .orderBy('ts','asc')
@@ -1065,9 +1072,9 @@ function setSyncStatus(state,label){
   document.getElementById('syncLabel').textContent=label;
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // DEMO MODE (localStorage fallback)
-// ═══════════════════════════════════
+// -----------------------------------
 function loadDemoTasks(code){
   try{return JSON.parse(lsGet('ea_tasks_'+code)||'[]');}catch(e){return[];}
 }
@@ -1077,9 +1084,9 @@ function loadDemoComments(code){
 function saveDemoTasks(){lsSet('ea_tasks_'+wsCode,JSON.stringify(tasks));}
 function saveDemoComments(){lsSet('ea_comments_'+wsCode,JSON.stringify(comments));}
 
-// ═══════════════════════════════════
+// -----------------------------------
 // TASK CRUD
-// ═══════════════════════════════════
+// -----------------------------------
 async function addTaskToDb(obj){
   if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('tasks').doc(obj.id).set(obj);}
   else{tasks.push(obj);saveDemoTasks();render();}
@@ -1093,9 +1100,9 @@ async function deleteTaskFromDb(id){
   else{tasks=tasks.filter(t=>t.id!==id);saveDemoTasks();render();}
 }
 
-// ═══════════════════════════════════
+// -----------------------------------
 // COMMENT CRUD
-// ═══════════════════════════════════
+// -----------------------------------
 async function postComment(){
   const text=document.getElementById('commentInput').value.trim();
   if(!text) return;
@@ -1146,20 +1153,20 @@ function updateCommentBadge(){
 function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function formatTime(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleDateString('en-PH',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});}
 
-// ═══════════════════════════════════
+// -----------------------------------
 // UI HELPERS
-// ═══════════════════════════════════
+// -----------------------------------
 function dlClass(d){if(!d)return'ok';const now=new Date();now.setHours(0,0,0,0);const dl=new Date(d);dl.setHours(0,0,0,0);const diff=(dl-now)/86400000;if(diff<0)return'overdue';if(diff===0)return'today';if(diff<=3)return'soon';return'ok';}
-function dlLabel(d){if(!d)return'—';const now=new Date();now.setHours(0,0,0,0);const dl=new Date(d);dl.setHours(0,0,0,0);const diff=(dl-now)/86400000;const fmt=dl.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});if(diff<0)return fmt+' ⚠';if(diff===0)return'Today';if(diff===1)return'Tomorrow';return fmt;}
+function dlLabel(d){if(!d)return'--';const now=new Date();now.setHours(0,0,0,0);const dl=new Date(d);dl.setHours(0,0,0,0);const diff=(dl-now)/86400000;const fmt=dl.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});if(diff<0)return fmt+' ⚠';if(diff===0)return'Today';if(diff===1)return'Tomorrow';return fmt;}
 function statusPill(s){const m={'To Do':'p-todo','In Progress':'p-ip','For Review':'p-rv','Done':'p-dn'};return`<span class="pill ${m[s]||''}">● ${s}</span>`;}
 function prioSpan(p){const c={Urgent:'pu',High:'ph',Normal:'pn',Low:'pl'};return`<span class="prio ${c[p]||'pn'}">${p}</span>`;}
 function pBar(v){v=parseInt(v)||0;const col=v===100?'var(--done)':v>=60?'var(--inprog)':v>=30?'var(--review)':'var(--todo)';return`<div class="pc"><span style="font-size:11px;color:var(--muted)">${v}%</span><div class="pb"><div class="pf" style="width:${v}%;background:${col}"></div></div></div>`;}
 function prioBCls(p){return{Urgent:'pu2',High:'ph2',Normal:'pn2',Low:'pl2'}[p]||'pn2';}
 function pillStyle(s){if(s==='To Do')return'background:rgba(41,128,185,.15);color:var(--todo)';if(s==='In Progress')return'background:rgba(39,174,96,.15);color:var(--inprog)';if(s==='For Review')return'background:rgba(212,130,10,.15);color:var(--review)';return'background:rgba(142,68,173,.15);color:var(--done)';}
 
-// ═══════════════════════════════════
+// -----------------------------------
 // RENDER
-// ═══════════════════════════════════
+// -----------------------------------
 function updateStats(){
   const c={'To Do':0,'In Progress':0,'For Review':0,'Done':0};
   tasks.forEach(t=>{if(c[t.status]!==undefined)c[t.status]++;});
@@ -1180,7 +1187,7 @@ function updateOverdue(){
   const now=new Date();now.setHours(0,0,0,0);
   const ov=tasks.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now);
   const b=document.getElementById('overdueBanner');
-  if(ov.length){document.getElementById('overdueText').textContent=`${ov.length} overdue task${ov.length>1?'s':''} — action needed.`;b.classList.add('show');}
+  if(ov.length){document.getElementById('overdueText').textContent=`${ov.length} overdue task${ov.length>1?'s':''} -- action needed.`;b.classList.add('show');}
   else b.classList.remove('show');
 }
 
@@ -1228,8 +1235,8 @@ function render(){
     tbody.innerHTML=filtered.map(t=>{
       const dc=dlClass(t.deadline);const isOv=dc==='overdue'&&t.status!=='Done';
       return`<tr class="${isOv?'ov':''}" onclick="editTask('${t.id}')">
-        <td class="tn">${escHtml(t.task)}<small>${t.assignee?'👤 '+escHtml(t.assignee):''}${t.notes?' · '+escHtml(t.notes.slice(0,40))+(t.notes.length>40?'…':''):''}</small></td>
-        <td>${t.category?`<span class="ct">${escHtml(t.category)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+        <td class="tn">${escHtml(t.task)}<small>${t.assignee?'👤 '+escHtml(t.assignee):''}${t.notes?' . '+escHtml(t.notes.slice(0,40))+(t.notes.length>40?'...':''):''}</small></td>
+        <td>${t.category?`<span class="ct">${escHtml(t.category)}</span>`:'<span style="color:var(--muted)">--</span>'}</td>
         <td>${statusPill(t.status)}</td><td>${prioSpan(t.priority)}</td>
         <td><span class="dl ${dc}">${dlLabel(t.deadline)}</span></td>
         <td>${pBar(t.progress)}</td>
@@ -1246,7 +1253,7 @@ function render(){
     return`<div class="tc ${isOv?'ov':''}" onclick="editTask('${t.id}')">
       <div class="tc-top"><div class="tc-name">${escHtml(t.task)}</div>${prioSpan(t.priority)}</div>
       <div class="tc-meta">${statusPill(t.status)}${t.category?`<span class="ct">${escHtml(t.category)}</span>`:''}<span class="dl ${dc}">${dlLabel(t.deadline)}</span></div>
-      ${t.notes?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${escHtml(t.notes.slice(0,80))}${t.notes.length>80?'…':''}</div>`:''}
+      ${t.notes?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${escHtml(t.notes.slice(0,80))}${t.notes.length>80?'...':''}</div>`:''}
       ${pBar(t.progress)}
       <div class="tc-actions" style="margin-top:8px" onclick="event.stopPropagation()">
         <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next Status</button>
@@ -1257,7 +1264,7 @@ function render(){
   }).join('');
 }
 
-// ── WEEKLY ──
+//    WEEKLY   
 function getWeekStart(offset){const now=new Date();now.setHours(0,0,0,0);now.setDate(now.getDate()-now.getDay()+offset*7);return new Date(now);}
 function dStr(d){return d.toISOString().slice(0,10);}
 
@@ -1266,16 +1273,16 @@ function renderWeek(){
   const days=Array.from({length:7},(_,i)=>{const d=new Date(ws2);d.setDate(d.getDate()+i);return d;});
   const todayKey=todayStr();
   const fmt=d=>d.toLocaleDateString('en-PH',{month:'short',day:'numeric'});
-  document.getElementById('weekRangeLabel').textContent=`${fmt(days[0])} – ${fmt(days[6])}, ${days[0].getFullYear()}`;
+  document.getElementById('weekRangeLabel').textContent=`${fmt(days[0])} - ${fmt(days[6])}, ${days[0].getFullYear()}`;
   const byDay={};days.forEach(d=>{byDay[dStr(d)]=[];});
   tasks.forEach(t=>{if(t.deadline&&byDay[t.deadline]!==undefined)byDay[t.deadline].push(t);});
   Object.keys(byDay).forEach(k=>{byDay[k].sort((a,b)=>(PRIO_ORDER[a.priority]??99)-(PRIO_ORDER[b.priority]??99));});
   const mx=Math.max(1,...Object.values(byDay).map(a=>a.length));
-  function tc2(t){const next=STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length];return`<div class="dtc ${prioBCls(t.priority)} ${t.status==='Done'?'done-fade':''}" onclick="editTask('${t.id}')"><div class="dtc-name">${escHtml(t.task)}</div><div class="dtc-foot"><span class="dtc-pill" style="${pillStyle(t.status)}">${t.status}</span><button class="dtc-cyc" onclick="event.stopPropagation();cycleStatus('${t.id}')" title="→ ${next}">↻</button></div></div>`;}
+  function tc2(t){const next=STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length];return`<div class="dtc ${prioBCls(t.priority)} ${t.status==='Done'?'done-fade':''}" onclick="editTask('${t.id}')"><div class="dtc-name">${escHtml(t.task)}</div><div class="dtc-foot"><span class="dtc-pill" style="${pillStyle(t.status)}">${t.status}</span><button class="dtc-cyc" onclick="event.stopPropagation();cycleStatus('${t.id}')" title="-> ${next}">↻</button></div></div>`;}
   document.getElementById('weekGrid').innerHTML=days.map(d=>{
     const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];
     const lp=Math.round((dt.length/mx)*100);const lc=lp>80?'var(--danger)':lp>50?'var(--warn)':'var(--accent)';
-    return`<div class="day-col${isT?' is-today':''}"><div class="day-hdr${isT?' is-today':''}"><div class="day-name">${DS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-load-bar"><div class="day-load-fill" style="width:${dt.length?lp:0}%;background:${lc}"></div></div><div class="day-count-lbl">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</div></div><div class="day-tasks">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">—</div>'}</div></div>`;
+    return`<div class="day-col${isT?' is-today':''}"><div class="day-hdr${isT?' is-today':''}"><div class="day-name">${DS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-load-bar"><div class="day-load-fill" style="width:${dt.length?lp:0}%;background:${lc}"></div></div><div class="day-count-lbl">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</div></div><div class="day-tasks">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">--</div>'}</div></div>`;
   }).join('');
   document.getElementById('weekMobile').innerHTML=days.map(d=>{
     const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];const id='wmd-'+key;
@@ -1291,7 +1298,7 @@ function renderWeek(){
 function toggleWmDay(id){const el=document.getElementById(id);if(el)el.classList.toggle('collapsed');}
 function shiftWeek(dir){weekOffset=dir===0?0:weekOffset+dir;renderWeek();}
 
-// ── ACTIONS ──
+//    ACTIONS   
 function filterStatus(s){activeSF=s;render();}
 function sortBy(f){if(sortField===f)sortDir=-sortDir;else{sortField=f;sortDir=1;}render();}
 
@@ -1302,7 +1309,7 @@ async function cycleStatus(id){
   if(updated.status==='Done')updated.progress=100;
   else if(updated.progress===100)updated.progress=90;
   await updateTaskInDb(updated);
-  toast('Status → '+updated.status);
+  toast('Status -> '+updated.status);
 }
 
 async function deleteTask(id){
@@ -1311,17 +1318,17 @@ async function deleteTask(id){
   toast('Task deleted');
 }
 
-// ── TASK MODAL ──
+//    TASK MODAL   
 function onProgressChange(){
   const v=parseInt(document.getElementById('f-progress').value)||0;
   const se=document.getElementById('f-status');const note=document.getElementById('consistencyNote');
-  if(v===100&&se.value!=='Done'){se.value='Done';note.textContent='✅ Progress 100% — status auto-set to Done.';note.classList.add('show');}
-  else if(v<100&&se.value==='Done'){se.value='In Progress';note.textContent='ℹ️ Progress below 100% — status changed.';note.classList.add('show');}
+  if(v===100&&se.value!=='Done'){se.value='Done';note.textContent='✅ Progress 100% -- status auto-set to Done.';note.classList.add('show');}
+  else if(v<100&&se.value==='Done'){se.value='In Progress';note.textContent='ℹ️ Progress below 100% -- status changed.';note.classList.add('show');}
   else note.classList.remove('show');
 }
 function onStatusChange(){
   const s=document.getElementById('f-status').value;const note=document.getElementById('consistencyNote');
-  if(s==='Done'){document.getElementById('f-progress').value=100;note.textContent='✅ Status Done — progress auto-set to 100%.';note.classList.add('show');}
+  if(s==='Done'){document.getElementById('f-progress').value=100;note.textContent='✅ Status Done -- progress auto-set to 100%.';note.classList.add('show');}
   else note.classList.remove('show');
 }
 
@@ -1374,7 +1381,7 @@ function switchTab(tab){
   else render();
 }
 
-// ── CHANGE / FORGOT PIN ──
+//    CHANGE / FORGOT PIN   
 function openChangePIN(){
   ['cp-current','cp-new','cp-confirm'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('cp-err').textContent='';
@@ -1441,7 +1448,7 @@ async function saveForgotPIN(){
   toast('PIN reset successfully!');
 }
 
-// ── EXPORT ──
+//    EXPORT   
 function exportCSV(){
   const header=['Task','Category','Assignee','Status','Priority','Deadline','Progress','Notes','Created'];
   const rows=tasks.map(t=>[`"${(t.task||'').replace(/"/g,'""')}"`,`"${(t.category||'').replace(/"/g,'""')}"`,`"${(t.assignee||'').replace(/"/g,'""')}"`,t.status,t.priority,t.deadline||'',(t.progress||0)+'%',`"${(t.notes||'').replace(/"/g,'""')}"`,t.created||'']);
@@ -1450,10 +1457,10 @@ function exportCSV(){
   toast('CSV exported');
 }
 
-// ── TOAST ──
+//    TOAST   
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2700);}
 
-// ── WORKSPACE CODE DISPLAY ──
+//    WORKSPACE CODE DISPLAY   
 function showWorkspaceCode(){
   document.getElementById('modalWsCode').textContent=wsCode;
   document.getElementById('modalWsCode2').textContent=wsCode;
@@ -1472,16 +1479,10 @@ function copyWsCode(){
   });
 }
 
-// ═══════════════════════════════════
-// INIT — decide which screen to show
-// ═══════════════════════════════════
-// ── DEFAULT FIREBASE CONFIG (TalentPop-EA-Taskboard) ──
-const DEFAULT_FB_CFG={
-  apiKey:'AIzaSyCimPPZZR4Rl3pGIJpQo9rUUP7GYPneOm8',
-  projectId:'talentpop-ea-taskboard',
-  appId:'1:423770341498:web:bec4933a9239b8c56bbbc3'
-};
-
+// -----------------------------------
+// INIT -- decide which screen to show
+// -----------------------------------
+//    DEFAULT FIREBASE CONFIG (TalentPop-EA-Taskboard)   
 async function init(){
   const lastCode=lsGet('ea_last_code');
   const lastRole=lsGet('ea_last_role');
@@ -1490,7 +1491,7 @@ async function init(){
 
   if(isDemo) demoMode=true;
 
-  // Always init Firebase — use saved config or fall back to default
+  // Always init Firebase -- use saved config or fall back to default
   if(!isDemo){
     try{
       const cfg=fbCfg?JSON.parse(fbCfg):DEFAULT_FB_CFG;
@@ -1515,7 +1516,7 @@ async function init(){
     }
   }
 
-  // No saved workspace — show join screen
+  // No saved workspace -- show join screen
   document.getElementById('joinScreen').classList.add('show');
 }
 
