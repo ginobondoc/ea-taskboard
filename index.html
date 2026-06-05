@@ -1914,10 +1914,13 @@ async function openAdminDrill(code){
   const ws=adminWorkspaces.find(w=>w.code===code);
   if(!ws) return;
 
+  // Hide summary, show drill-down
   document.getElementById('adminEAList').style.display='none';
   document.getElementById('adminStats').style.display='none';
+  document.getElementById('adminSearch')?.parentElement?.parentElement?.querySelector('div:first-child') && 
+    (document.querySelector('#adminDashboard > div:first-child').style.display='none');
   document.getElementById('adminDrillDown').style.display='block';
-  document.getElementById('adminDrillTitle').textContent=(ws.eaName||'EA')+' -> '+(ws.clientName||'Client')+' ('+code+')';
+  document.getElementById('adminDrillTitle').textContent=(ws.eaName||'EA')+' -- '+(ws.clientName||'Client')+' ('+code+')';
 
   // Render tasks
   const now=new Date();now.setHours(0,0,0,0);
@@ -1976,11 +1979,54 @@ async function postAdminComment(){
   toast('Comment posted');
 }
 
+async function adminCycleStatus(wsCode2, taskId){
+  if(!db) return;
+  const ws=adminWorkspaces.find(w=>w.code===wsCode2);
+  if(!ws) return;
+  const t=(ws.tasks||[]).find(x=>x.id===taskId);
+  if(!t) return;
+  const i=STATUSES.indexOf(t.status);
+  t.status=STATUSES[(i+1)%STATUSES.length];
+  if(t.status==='Done') t.progress=100;
+  await db.collection('workspaces').doc(wsCode2).collection('tasks').doc(taskId).update({status:t.status,progress:t.progress});
+  toast('Status -> '+t.status);
+  openAdminDrill(wsCode2);
+}
+
+async function adminDeleteTask(wsCode2, taskId){
+  if(!confirm('Delete this task?')) return;
+  if(!db) return;
+  const ws=adminWorkspaces.find(w=>w.code===wsCode2);
+  if(ws) ws.tasks=(ws.tasks||[]).filter(t=>t.id!==taskId);
+  await db.collection('workspaces').doc(wsCode2).collection('tasks').doc(taskId).delete();
+  toast('Task deleted');
+  openAdminDrill(wsCode2);
+}
+
+function openAdminAddTask(wsCode2){
+  const task=prompt('Task name:');
+  if(!task||!task.trim()) return;
+  const ws=adminWorkspaces.find(w=>w.code===wsCode2);
+  const newTask={
+    id:uid(), task:task.trim(), notes:'', category:'', assignee:'',
+    status:'To Do', priority:'Normal', deadline:'', progress:0,
+    createdBy:'admin', created:todayStr()
+  };
+  if(!ws.tasks) ws.tasks=[];
+  ws.tasks.push(newTask);
+  if(db) db.collection('workspaces').doc(wsCode2).collection('tasks').doc(newTask.id).set(newTask);
+  toast('Task added');
+  openAdminDrill(wsCode2);
+}
+
 function closeAdminDrill(){
   adminDrillWsCode='';
   document.getElementById('adminDrillDown').style.display='none';
   document.getElementById('adminEAList').style.display='';
-  document.getElementById('adminStats').style.display='';
+  document.getElementById('adminStats').style.display='grid';
+  // Restore top bar
+  const topBar = document.querySelector('#adminDashboard > div:first-child');
+  if(topBar) topBar.style.display='flex';
 }
 
 function changeAdminPIN(){
