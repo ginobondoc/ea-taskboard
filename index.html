@@ -126,6 +126,23 @@ body{background:var(--bg);color:var(--text);font-family:'Epilogue',sans-serif;fo
 .badge-soon{background:rgba(41,128,185,.12);color:#2980b9;}
 .reminder-seen-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Epilogue',sans-serif;transition:all .15s;white-space:nowrap;}
 .reminder-seen-btn:hover{border-color:var(--inprog);color:var(--inprog);}
+.notif-bell-wrap{position:relative;display:inline-flex;}
+.notif-bell{position:relative;}
+.notif-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;border-radius:100px;font-size:10px;font-weight:700;min-width:17px;height:17px;display:flex;align-items:center;justify-content:center;padding:0 4px;pointer-events:none;border:2px solid var(--accent);}
+.notif-item{display:flex;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;align-items:flex-start;}
+.notif-item:hover{background:var(--surface2);}
+.notif-item.unread{background:rgba(200,245,90,.06);}
+.notif-item.unread .notif-dot{background:var(--accent);}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:transparent;flex-shrink:0;margin-top:5px;}
+.notif-content{flex:1;}
+.notif-text{font-size:12px;line-height:1.5;color:var(--text);}
+.notif-time{font-size:10px;color:var(--muted);margin-top:3px;}
+.notif-empty{text-align:center;padding:32px 16px;color:var(--muted);font-size:13px;}
+.mention-item{padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .15s;}
+.mention-item:hover{background:var(--surface2);}
+/* Bigger comment button */
+.comment-btn-big{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:15px;transition:all .15s;margin-right:3px;}
+.comment-btn-big:hover{border-color:var(--accent);color:var(--accent);}
 .hbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Epilogue',sans-serif;}
 .hbtn:hover{background:rgba(255,255,255,.2);color:#fff;}
 
@@ -409,6 +426,14 @@ td{padding:12px;vertical-align:middle;}
         </div>
         <div style="font-size:11px;color:var(--muted);">Share this PIN with your client so they can access the shared board.</div>
       </div>
+      <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;">Admin Access (Optional)</div>
+        <div class="fr">
+          <div class="fg"><label>Admin PIN (4 digits)</label><input type="password" id="pin-admin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+          <div class="fg"><label>Confirm Admin PIN</label><input type="password" id="pin-admin2" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);">Optional: set an admin PIN to enable the admin dashboard view. Must be different from EA and client PINs.</div>
+      </div>
       <div class="err-txt" id="pin-err"></div>
       <div class="modal-actions" style="justify-content:flex-start;">
         <button class="btn btn-primary" onclick="savePINSetup()">Continue →</button>
@@ -521,6 +546,10 @@ td{padding:12px;vertical-align:middle;}
     </div>
     <div class="header-user">
       <div class="user-chip"><span id="currentUserName">—</span><span class="role" id="currentUserRole">EA</span></div>
+      <div class="notif-bell-wrap" onclick="toggleNotifPanel()">
+        <button class="hbtn notif-bell" id="notifBell">🔔</button>
+        <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+      </div>
       <button class="hbtn" onclick="showWorkspaceCode()">📋 Code</button>
       <button class="hbtn" onclick="openChangePIN()">🔑 PIN</button>
       <button class="hbtn" onclick="lockApp()">🔒 Lock</button>
@@ -547,7 +576,7 @@ td{padding:12px;vertical-align:middle;}
   <div class="tabs">
     <div class="tab active" id="tab-list" onclick="switchTab('list')">📋 Tasks</div>
     <div class="tab" id="tab-week" onclick="switchTab('week')">📅 Weekly</div>
-    <div class="tab" id="tab-comments" onclick="switchTab('comments')">💬 Comments <span id="commentBadge" style="display:none;background:var(--accent2);color:var(--accent);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;"></span></div>
+    <div class="tab" id="tab-comments" onclick="switchTab('comments')">💬 Comments <span id="commentBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;font-weight:700;"></span></div>
   </div>
 
   <div class="toolbar" id="listToolbar">
@@ -642,6 +671,26 @@ td{padding:12px;vertical-align:middle;}
       <div class="fg"><label>Deadline</label><input type="date" id="f-deadline"></div>
       <div class="fg"><label>Progress (0–100%)</label><input type="number" id="f-progress" min="0" max="100" placeholder="0" oninput="onProgressChange()"><span class="hint" id="progressHint"></span></div>
     </div>
+    <div class="fr">
+      <div class="fg">
+        <label>Recurring Task?</label>
+        <select id="f-recurring" onchange="onRecurringChange()">
+          <option value="">No -- One-time task</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div class="fg" id="recurringNextWrap" style="display:none;">
+        <label>Next Due Date</label>
+        <input type="date" id="f-recurring-next" readonly style="background:var(--surface2);color:var(--muted);">
+        <span class="hint">Auto-calculated based on frequency</span>
+      </div>
+    </div>
+    <div id="recurringNote" style="display:none;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.2);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--muted);margin-bottom:12px;">
+      🔄 When this task is marked <strong>Done</strong>, a new instance will be created automatically with the next due date.
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
@@ -679,6 +728,22 @@ td{padding:12px;vertical-align:middle;}
       <button class="btn btn-primary" onclick="saveForgotPIN()">Reset PIN</button>
     </div>
   </div>
+</div>
+
+<!-- Notification Panel -->
+<div id="notifPanel" style="display:none;position:fixed;top:62px;right:16px;width:340px;max-width:96vw;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:450;max-height:480px;overflow:hidden;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);">
+    <span style="font-weight:600;font-size:14px;">Notifications</span>
+    <div style="display:flex;gap:8px;">
+      <button onclick="markAllNotifsRead()" style="font-size:11px;background:none;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;cursor:pointer;font-family:'Epilogue',sans-serif;">Mark all read</button>
+      <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;">✕</button>
+    </div>
+  </div>
+  <div id="notifList" style="overflow-y:auto;max-height:400px;"></div>
+</div>
+
+<!-- @Mention Dropdown -->
+<div id="mentionDropdown" style="display:none;position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:600;min-width:180px;max-height:160px;overflow-y:auto;">
 </div>
 
 <!-- Reminder Modal -->
@@ -851,6 +916,10 @@ function savePINSetup(){
   wsData.pinClient=djb2(clientPin);
   wsData.phrase=djb2(phrase.toLowerCase().trim());
   wsData.created=todayStr();
+  // Admin PIN (optional)
+  const adminPin=document.getElementById('pin-admin')?.value||'';
+  const adminPin2=document.getElementById('pin-admin2')?.value||'';
+  if(adminPin&&adminPin===adminPin2) wsData.pinAdmin=djb2(adminPin);
 
   document.getElementById('displayWsCode').textContent=wsCode;
   showStep(4);
@@ -1019,6 +1088,7 @@ function checkLockPIN(){
   let role='';
   if(h===wsData.pinEA) role='ea';
   else if(h===wsData.pinClient) role='client';
+  else if(wsData.pinAdmin&&h===wsData.pinAdmin) role='admin';
   if(role){
     failCount=0; setDotsState('success');
     setTimeout(()=>{
@@ -1059,12 +1129,23 @@ function bootApp(code,role,fromLock=false){
   if(wsData.logo){const hl=document.getElementById('headerLogo');hl.src=wsData.logo;hl.style.display='block';}
 
   // Client can add/edit tasks too (as per requirement)
-  document.getElementById('addTaskBtn').style.display='';
+  document.getElementById('addTaskBtn').style.display=role==='admin'?'none':'';
+  // Admin dashboard
+  if(role==='admin'){
+    document.getElementById('adminDashboard').style.display='block';
+    document.getElementById('view-list').classList.remove('active');
+    document.querySelectorAll('.tabs,.toolbar,.stats-bar').forEach(el=>el.style.display='none');
+    loadAdminDashboard();
+    return;
+  }
 
   document.getElementById('app').classList.add('show');
   setSyncStatus('syncing','Connecting...');
   setupDailyReminder();
 
+  loadNotifications();
+  renderNotifBadge();
+  setupMentionListener();
   if(!demoMode&&db){
     startListeners(code);
   } else {
@@ -1161,6 +1242,17 @@ async function postComment(){
   document.getElementById('commentInput').value='';
   if(!demoMode&&db){await db.collection('workspaces').doc(wsCode).collection('comments').doc(obj.id).set(obj);}
   else{comments.push(obj);saveDemoComments();renderComments();}
+
+  // Add notifications
+  const taskRef=obj.taskName?' on: '+obj.taskName:'';
+  addNotification('comment', currentUser.name+' commented'+taskRef+': '+text.slice(0,60)+(text.length>60?'...':''), obj.taskId||'');
+
+  // Detect @mentions and add personalized notifications
+  const mentions=extractMentions(text);
+  mentions.forEach(name=>{
+    addNotification('mention','You were mentioned by '+currentUser.name+': '+text.slice(0,50)+(text.length>50?'...':''), obj.taskId||'');
+  });
+
   toast('Comment posted');
 }
 
@@ -1222,12 +1314,11 @@ function updateStats(){
   document.getElementById('cnt-rv').textContent=c['For Review'];
   document.getElementById('cnt-dn').textContent=c['Done'];
 }
+const CATEGORIES=['Admin','Client','Operations','Finance','Projects'];
 function updateCatFilter(){
-  const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
   const sel=document.getElementById('catFilter');const cur=sel.value;
-  sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.innerHTML='<option value="">All Categories</option>'+CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
   if(cur)sel.value=cur;
-  document.getElementById('cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
 }
 function updateOverdue(){
   const now=new Date();now.setHours(0,0,0,0);
@@ -1288,7 +1379,7 @@ function render(){
         <td>${pBar(t.progress)}</td>
         <td onclick="event.stopPropagation()">
           <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next</button>
-          <button class="ab" onclick="openCommentForTask('${t.id}')" title="Comment on this task">💬</button>
+          <button class="comment-btn-big" onclick="openCommentForTask('${t.id}')" title="Comment on this task">💬</button>
           <button class="ab del" onclick="deleteTask('${t.id}')">✕</button>
         </td>
       </tr>`;
@@ -1303,7 +1394,7 @@ function render(){
       ${pBar(t.progress)}
       <div class="tc-actions" style="margin-top:8px" onclick="event.stopPropagation()">
         <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next Status</button>
-        <button class="ab" onclick="openCommentForTask('${t.id}')">💬 Comment</button>
+        <button class="comment-btn-big" onclick="openCommentForTask('${t.id}')">💬 Comment</button>
         <button class="ab del" onclick="deleteTask('${t.id}')">✕</button>
       </div>
     </div>`;
@@ -1355,6 +1446,10 @@ async function cycleStatus(id){
   if(updated.status==='Done')updated.progress=100;
   else if(updated.progress===100)updated.progress=90;
   await updateTaskInDb(updated);
+  // If recurring and just marked Done, create next instance
+  if(updated.status==='Done'&&updated.recurring) await createRecurringInstance(updated);
+  // Notify client when task done
+  if(updated.status==='Done') addNotification('done','Task completed: '+updated.task, updated.id);
   toast('Status -> '+updated.status);
 }
 
@@ -1365,6 +1460,54 @@ async function deleteTask(id){
 }
 
 //    TASK MODAL   
+// -- RECURRING TASKS --
+function onRecurringChange(){
+  const val = document.getElementById('f-recurring').value;
+  const nextWrap = document.getElementById('recurringNextWrap');
+  const note = document.getElementById('recurringNote');
+  const deadline = document.getElementById('f-deadline').value;
+  if(val){
+    nextWrap.style.display = '';
+    note.style.display = '';
+    if(deadline) document.getElementById('f-recurring-next').value = calcNextDue(deadline, val);
+  } else {
+    nextWrap.style.display = 'none';
+    note.style.display = 'none';
+  }
+}
+
+function calcNextDue(dateStr, freq){
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  if(freq==='weekly') d.setDate(d.getDate()+7);
+  else if(freq==='monthly') d.setMonth(d.getMonth()+1);
+  else if(freq==='quarterly') d.setMonth(d.getMonth()+3);
+  else if(freq==='yearly') d.setFullYear(d.getFullYear()+1);
+  return d.toISOString().slice(0,10);
+}
+
+async function createRecurringInstance(original){
+  if(!original.recurring) return;
+  const nextDue = calcNextDue(original.deadline, original.recurring);
+  const newTask = {
+    id: uid(),
+    task: original.task,
+    notes: original.notes||'',
+    category: original.category||'',
+    assignee: original.assignee||'',
+    status: 'To Do',
+    priority: original.priority||'Normal',
+    deadline: nextDue,
+    progress: 0,
+    recurring: original.recurring,
+    createdBy: original.createdBy||'ea',
+    created: todayStr(),
+    recurringFrom: original.id
+  };
+  await addTaskToDb(newTask);
+  toast('Recurring task created for '+nextDue);
+}
+
 function onProgressChange(){
   const v=parseInt(document.getElementById('f-progress').value)||0;
   const se=document.getElementById('f-status');const note=document.getElementById('consistencyNote');
@@ -1382,11 +1525,17 @@ function openModal(id){
   editId=id||null;const t=id?tasks.find(x=>x.id===id):null;
   document.getElementById('modalTitle').textContent=id?'Edit Task':'New Task';
   document.getElementById('modalSub').textContent=id?'Update task details.':'Add a new task to the board.';
-  ['task','notes','category','assignee'].forEach(f=>document.getElementById('f-'+f).value=t?(t[f]||''):'');
+  ['task','notes','assignee'].forEach(f=>document.getElementById('f-'+f).value=t?(t[f]||''):'');
+  document.getElementById('f-category').value=t?(t.category||''):'';
   document.getElementById('f-status').value=t?t.status:'To Do';
   document.getElementById('f-priority').value=t?t.priority:'Normal';
   document.getElementById('f-deadline').value=t?(t.deadline||''):'';
   document.getElementById('f-progress').value=t?(t.progress||0):0;
+  document.getElementById('f-recurring').value=t?(t.recurring||''):'';
+  const recurVal=t?(t.recurring||''):'';
+  document.getElementById('recurringNextWrap').style.display=recurVal?'':'none';
+  document.getElementById('recurringNote').style.display=recurVal?'':'none';
+  if(recurVal&&t.deadline) document.getElementById('f-recurring-next').value=calcNextDue(t.deadline,recurVal);
   document.getElementById('progressHint').textContent='';
   document.getElementById('consistencyNote').classList.remove('show');
   document.getElementById('modalBg').classList.add('open');
@@ -1401,17 +1550,21 @@ async function saveTask(){
   let progress=Math.min(100,Math.max(0,parseInt(document.getElementById('f-progress').value)||0));
   let status=document.getElementById('f-status').value;
   if(status==='Done')progress=100;if(progress===100)status='Done';
+  const recurring=document.getElementById('f-recurring').value||'';
   const obj={
     id:editId||uid(),task,
     notes:document.getElementById('f-notes').value.trim(),
-    category:document.getElementById('f-category').value.trim(),
+    category:document.getElementById('f-category').value||'',
     assignee:document.getElementById('f-assignee').value.trim(),
     status,priority:document.getElementById('f-priority').value,
     deadline:document.getElementById('f-deadline').value,progress,
+    recurring,
     createdBy:currentUser.role,
     created:editId?(tasks.find(t=>t.id===editId)?.created||todayStr()):todayStr()
   };
   if(editId)await updateTaskInDb(obj);else await addTaskToDb(obj);
+  // Notify on new task
+  if(!editId) addNotification('task','New task added: '+task, obj.id);
   closeModal();toast(editId?'Task updated!':'Task added!');
 }
 
@@ -1507,6 +1660,184 @@ function exportCSV(){
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2700);}
 
 //    WORKSPACE CODE DISPLAY   
+// -- ADMIN DASHBOARD --
+let adminWorkspaces=[];
+let adminDrillWsCode='';
+
+async function loadAdminDashboard(){
+  if(!db) return;
+  const snap = await db.collection('workspaces').get();
+  adminWorkspaces=[];
+  const promises=[];
+  snap.forEach(doc=>{
+    const ws={...doc.data(),code:doc.id};
+    const p=db.collection('workspaces').doc(doc.id).collection('tasks').get().then(ts=>{
+      ws.tasks=ts.docs.map(d=>({id:d.id,...d.data()}));
+    });
+    adminWorkspaces.push(ws);
+    promises.push(p);
+  });
+  await Promise.all(promises);
+  renderAdmin();
+}
+
+function refreshAdmin(){loadAdminDashboard();toast('Dashboard refreshed');}
+
+function renderAdmin(){
+  const q=(document.getElementById('adminSearch')?.value||'').toLowerCase();
+  const filtered=adminWorkspaces.filter(ws=>
+    !q||(ws.eaName||'').toLowerCase().includes(q)||(ws.clientName||'').toLowerCase().includes(q)
+  );
+
+  // Summary stats
+  let totalTasks=0,totalOverdue=0,totalDone=0,totalIP=0;
+  const now=new Date();now.setHours(0,0,0,0);
+  filtered.forEach(ws=>{
+    (ws.tasks||[]).forEach(t=>{
+      totalTasks++;
+      if(t.status==='Done') totalDone++;
+      if(t.status==='In Progress') totalIP++;
+      if(t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now) totalOverdue++;
+    });
+  });
+
+  document.getElementById('adminStats').innerHTML=[
+    {label:'Workspaces',val:filtered.length,color:'var(--accent)'},
+    {label:'Total Tasks',val:totalTasks,color:'var(--text)'},
+    {label:'In Progress',val:totalIP,color:'var(--inprog)'},
+    {label:'Overdue',val:totalOverdue,color:totalOverdue>0?'var(--danger)':'var(--done)'},
+    {label:'Done',val:totalDone,color:'var(--done)'},
+  ].map(s=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);">
+    <div style="font-family:'Playfair Display',serif;font-size:26px;color:${s.color};">${s.val}</div>
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;">${s.label}</div>
+  </div>`).join('');
+
+  if(!filtered.length){
+    document.getElementById('adminEAList').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">No workspaces found.</div>';
+    return;
+  }
+
+  // Sort by most overdue first
+  filtered.sort((a,b)=>{
+    const ovA=(a.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+    const ovB=(b.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+    return ovB-ovA;
+  });
+
+  document.getElementById('adminEAList').innerHTML=`
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">EA Name</th>
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Client</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Total</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">To Do</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">In Progress</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Overdue</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Done</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Health</th>
+          <th style="padding:10px 12px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map((ws,ri)=>{
+          const tasks2=ws.tasks||[];
+          const total=tasks2.length;
+          const todo=tasks2.filter(t=>t.status==='To Do').length;
+          const ip=tasks2.filter(t=>t.status==='In Progress').length;
+          const done=tasks2.filter(t=>t.status==='Done').length;
+          const ov=tasks2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+          const health=ov>3?'🔴 Critical':ov>0?'🟡 At Risk':'🟢 On Track';
+          return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" onclick="openAdminDrill('${ws.code}')">
+            <td style="padding:13px 12px;font-weight:500;">${ws.eaName||'--'}</td>
+            <td style="padding:13px 12px;color:var(--muted);font-size:13px;">${ws.clientName||'--'}</td>
+            <td style="padding:13px 12px;text-align:center;">${total}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--todo);">${todo}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--inprog);">${ip}</td>
+            <td style="padding:13px 12px;text-align:center;font-weight:600;color:${ov>0?'var(--danger)':'var(--muted)'};">${ov>0?'⚠ '+ov:ov}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--done);">${done}</td>
+            <td style="padding:13px 12px;text-align:center;font-size:13px;">${health}</td>
+            <td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="event.stopPropagation();openAdminDrill('${ws.code}')">View →</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function openAdminDrill(code){
+  adminDrillWsCode=code;
+  const ws=adminWorkspaces.find(w=>w.code===code);
+  if(!ws) return;
+
+  document.getElementById('adminEAList').style.display='none';
+  document.getElementById('adminStats').style.display='none';
+  document.getElementById('adminDrillDown').style.display='block';
+  document.getElementById('adminDrillTitle').textContent=(ws.eaName||'EA')+' -> '+(ws.clientName||'Client')+' ('+code+')';
+
+  // Render tasks
+  const now=new Date();now.setHours(0,0,0,0);
+  const taskHtml=(ws.tasks||[]).sort((a,b)=>{
+    const order={'Urgent':0,'High':1,'Normal':2,'Low':3};
+    return (order[a.priority]??9)-(order[b.priority]??9);
+  }).map(t=>{
+    const dc=dlClass(t.deadline);
+    const isOv=dc==='overdue'&&t.status!=='Done';
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px;border-left:3px solid ${isOv?'var(--danger)':t.status==='Done'?'var(--done)':'var(--border)'};">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-weight:500;flex:1;">${escHtml(t.task)}</span>
+        ${statusPill(t.status)}
+        ${prioSpan(t.priority)}
+        <span class="dl ${dc}" style="font-size:12px;">${dlLabel(t.deadline)}</span>
+        ${t.recurring?`<span style="font-size:10px;background:rgba(41,128,185,.12);color:var(--todo);padding:2px 7px;border-radius:100px;">🔄 ${t.recurring}</span>`:''}
+      </div>
+      ${t.notes?`<div style="font-size:11px;color:var(--muted);margin-top:5px;">${escHtml(t.notes.slice(0,80))}${t.notes.length>80?'...':''}</div>`:''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('adminDrillTasks').innerHTML=taskHtml||'<div style="color:var(--muted);font-size:13px;padding:20px 0;">No tasks in this workspace.</div>';
+
+  // Load comments
+  if(db){
+    const cSnap=await db.collection('workspaces').doc(code).collection('comments').orderBy('ts','asc').get();
+    const coms=cSnap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAdminComments(coms);
+  }
+}
+
+function renderAdminComments(coms){
+  const list=document.getElementById('adminDrillComments');
+  if(!coms.length){list.innerHTML='<div style="color:var(--muted);font-size:12px;">No comments yet.</div>';return;}
+  list.innerHTML=[...coms].reverse().map(c=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+        <span style="font-size:12px;font-weight:600;">${c.author||'Unknown'}</span>
+        <span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1px 7px;color:var(--muted);">${c.role==='ea'?'EA':'Client'}</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto;">${formatTime(c.ts)}</span>
+      </div>
+      <div style="font-size:13px;line-height:1.6;">${escHtml(c.text)}</div>
+      ${c.taskName?`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Re: ${escHtml(c.taskName)}</div>`:''}
+    </div>`).join('');
+}
+
+async function postAdminComment(){
+  const text=document.getElementById('adminCommentInput').value.trim();
+  if(!text||!adminDrillWsCode) return;
+  const obj={id:uid(),text,author:'Admin ('+currentUser.name+')',role:'admin',taskId:null,taskName:null,ts:Date.now()};
+  if(db) await db.collection('workspaces').doc(adminDrillWsCode).collection('comments').doc(obj.id).set(obj);
+  document.getElementById('adminCommentInput').value='';
+  // Reload comments
+  const cSnap=await db.collection('workspaces').doc(adminDrillWsCode).collection('comments').orderBy('ts','asc').get();
+  renderAdminComments(cSnap.docs.map(d=>({id:d.id,...d.data()})));
+  toast('Comment posted');
+}
+
+function closeAdminDrill(){
+  adminDrillWsCode='';
+  document.getElementById('adminDrillDown').style.display='none';
+  document.getElementById('adminEAList').style.display='';
+  document.getElementById('adminStats').style.display='';
+}
+
 function showWorkspaceCode(){
   document.getElementById('modalWsCode').textContent=wsCode;
   document.getElementById('modalWsCode2').textContent=wsCode;
