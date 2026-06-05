@@ -111,6 +111,21 @@ body{background:var(--bg);color:var(--text);font-family:'Epilogue',sans-serif;fo
 .header-user{display:flex;align-items:center;gap:6px;}
 .user-chip{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:6px;}
 .user-chip .role{font-size:10px;background:var(--accent2);color:var(--accent);border-radius:10px;padding:1px 7px;font-weight:600;}
+.reminder-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;}
+.reminder-card:hover{border-color:var(--accent);background:#f5f2ec;}
+.reminder-card.overdue{border-left:4px solid var(--danger);}
+.reminder-card.today{border-left:4px solid var(--warn);}
+.reminder-card.soon{border-left:4px solid #2980b9;}
+.reminder-card.seen{opacity:.45;}
+.reminder-card-info{flex:1;}
+.reminder-card-name{font-size:13px;font-weight:500;color:var(--text);}
+.reminder-card-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.reminder-card-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:100px;white-space:nowrap;}
+.badge-overdue{background:rgba(192,57,43,.12);color:var(--danger);}
+.badge-today{background:rgba(212,130,10,.12);color:var(--warn);}
+.badge-soon{background:rgba(41,128,185,.12);color:#2980b9;}
+.reminder-seen-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Epilogue',sans-serif;transition:all .15s;white-space:nowrap;}
+.reminder-seen-btn:hover{border-color:var(--inprog);color:var(--inprog);}
 .hbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Epilogue',sans-serif;}
 .hbtn:hover{background:rgba(255,255,255,.2);color:#fff;}
 
@@ -666,6 +681,29 @@ td{padding:12px;vertical-align:middle;}
   </div>
 </div>
 
+<!-- Reminder Modal -->
+<div class="modal-bg" id="reminderBg" style="z-index:550;">
+  <div class="modal" style="width:520px;max-width:96vw;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+      <div style="font-size:28px;" id="reminderIcon">⚠️</div>
+      <div>
+        <h2 style="margin-bottom:2px;" id="reminderTitle">Task Reminder</h2>
+        <p class="modal-sub" style="margin-bottom:0;" id="reminderSubtitle">You have tasks that need your attention.</p>
+      </div>
+    </div>
+    <div id="reminderList" style="margin:16px 0;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--border);">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
+        <input type="checkbox" id="reminderSnooze" style="cursor:pointer;">
+        Snooze for today
+      </label>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="dismissReminder()">Dismiss All</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Workspace Code Modal -->
 <div class="modal-bg" id="wsCodeBg">
   <div class="modal" style="width:360px;text-align:center;">
@@ -1025,6 +1063,7 @@ function bootApp(code,role,fromLock=false){
 
   document.getElementById('app').classList.add('show');
   setSyncStatus('syncing','Connecting...');
+  setupDailyReminder();
 
   if(!demoMode&&db){
     startListeners(code);
@@ -1034,6 +1073,7 @@ function bootApp(code,role,fromLock=false){
     comments=loadDemoComments(code);
     setSyncStatus('live','Demo mode -- data saved locally');
     render(); renderComments();
+    setTimeout(()=>showReminderModal('login'), 800);
   }
 }
 
@@ -1044,12 +1084,18 @@ function startListeners(code){
   stopListeners();
   setSyncStatus('syncing','Connecting...');
 
+  let firstLoad = true;
   unsubTasks=db.collection('workspaces').doc(code).collection('tasks')
     .orderBy('created','asc')
     .onSnapshot(snap=>{
       tasks=snap.docs.map(d=>({id:d.id,...d.data()}));
       setSyncStatus('live','Live -- syncing across all devices');
       render();
+      // Show reminder on first load after login
+      if(firstLoad){
+        firstLoad = false;
+        setTimeout(()=>showReminderModal('login'), 800);
+      }
     },err=>{setSyncStatus('error','Sync error -- check connection');console.error(err);});
 
   unsubComments=db.collection('workspaces').doc(code).collection('comments')
@@ -1480,6 +1526,141 @@ function copyWsCode(){
 }
 
 // -----------------------------------
+// REMINDER SYSTEM
+// -----------------------------------
+let reminderShownThisSession = false;
+let dailyReminderTimer = null;
+
+function getReminderTasks(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const in3 = new Date(now); in3.setDate(in3.getDate()+3);
+  const seenIds = JSON.parse(lsGet('ea_reminder_seen_'+todayStr())||'[]');
+
+  return tasks
+    .filter(t => t.status !== 'Done' && t.deadline)
+    .map(t => {
+      const dl = new Date(t.deadline); dl.setHours(0,0,0,0);
+      const diff = (dl - now) / 86400000;
+      let urgency = null;
+      if(diff < 0) urgency = 'overdue';
+      else if(diff === 0) urgency = 'today';
+      else if(diff <= 3) urgency = 'soon';
+      return urgency ? {...t, urgency, seen: seenIds.includes(t.id)} : null;
+    })
+    .filter(Boolean)
+    .sort((a,b) => {
+      const order = {overdue:0, today:1, soon:2};
+      return order[a.urgency] - order[b.urgency];
+    });
+}
+
+function showReminderModal(source='login'){
+  const reminderTasks = getReminderTasks();
+  if(!reminderTasks.length) return;
+
+  // Check snooze
+  const snoozed = lsGet('ea_reminder_snooze');
+  if(snoozed === todayStr()) return;
+
+  const overdue = reminderTasks.filter(t=>t.urgency==='overdue');
+  const today2 = reminderTasks.filter(t=>t.urgency==='today');
+  const soon = reminderTasks.filter(t=>t.urgency==='soon');
+
+  // Set icon and title
+  let icon = '📅', title = 'Task Reminder', subtitle = '';
+  if(overdue.length){
+    icon = '🚨';
+    title = overdue.length === 1 ? '1 Overdue Task' : overdue.length + ' Overdue Tasks';
+    subtitle = 'These tasks are past their deadline and need immediate attention.';
+  } else if(today2.length){
+    icon = '⏰';
+    title = 'Due Today';
+    subtitle = 'The following tasks are due today.';
+  } else {
+    icon = '📅';
+    title = 'Upcoming Deadlines';
+    subtitle = 'These tasks are due in the next 3 days.';
+  }
+  if(overdue.length && today2.length) subtitle = overdue.length+' overdue, '+today2.length+' due today, '+soon.length+' upcoming.';
+
+  document.getElementById('reminderIcon').textContent = icon;
+  document.getElementById('reminderTitle').textContent = title;
+  document.getElementById('reminderSubtitle').textContent = subtitle;
+  document.getElementById('reminderSnooze').checked = false;
+
+  // Build list
+  const list = document.getElementById('reminderList');
+  list.innerHTML = reminderTasks.map(t => {
+    const now2 = new Date(); now2.setHours(0,0,0,0);
+    const dl2 = new Date(t.deadline); dl2.setHours(0,0,0,0);
+    const diff2 = (dl2 - now2) / 86400000;
+    const dlStr = diff2 < 0 ? Math.abs(Math.round(diff2))+' day'+(Math.abs(Math.round(diff2))!==1?'s':'')+' overdue'
+      : diff2 === 0 ? 'Due today'
+      : 'Due in '+Math.round(diff2)+' day'+(Math.round(diff2)!==1?'s':'');
+    const badgeCls = t.urgency==='overdue'?'badge-overdue':t.urgency==='today'?'badge-today':'badge-soon';
+    return `<div class="reminder-card ${t.urgency} ${t.seen?'seen':''}" id="rc-${t.id}">
+      <div class="reminder-card-info" onclick="goToTask('${t.id}')">
+        <div class="reminder-card-name">${escHtml(t.task)}</div>
+        <div class="reminder-card-meta">${t.category?'['+escHtml(t.category)+'] ':''}${t.assignee?'Assigned: '+escHtml(t.assignee)+'  ':''}${statusPill(t.status)}</div>
+      </div>
+      <span class="reminder-card-badge ${badgeCls}">${dlStr}</span>
+      <button class="reminder-seen-btn" onclick="markReminderSeen('${t.id}')" title="Mark as seen">Seen</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('reminderBg').classList.add('open');
+}
+
+function dismissReminder(){
+  // Mark all current reminder tasks as seen
+  const reminderTasks = getReminderTasks();
+  const seenIds = JSON.parse(lsGet('ea_reminder_seen_'+todayStr())||'[]');
+  reminderTasks.forEach(t => { if(!seenIds.includes(t.id)) seenIds.push(t.id); });
+  lsSet('ea_reminder_seen_'+todayStr(), JSON.stringify(seenIds));
+
+  // Check snooze
+  if(document.getElementById('reminderSnooze').checked){
+    lsSet('ea_reminder_snooze', todayStr());
+  }
+  document.getElementById('reminderBg').classList.remove('open');
+}
+
+function markReminderSeen(id){
+  const seenIds = JSON.parse(lsGet('ea_reminder_seen_'+todayStr())||'[]');
+  if(!seenIds.includes(id)) seenIds.push(id);
+  lsSet('ea_reminder_seen_'+todayStr(), JSON.stringify(seenIds));
+  // Update card visually
+  const card = document.getElementById('rc-'+id);
+  if(card) card.classList.add('seen');
+}
+
+function goToTask(id){
+  document.getElementById('reminderBg').classList.remove('open');
+  // Switch to list view and open the task
+  switchTab('list');
+  setTimeout(()=>editTask(id), 200);
+}
+
+function setupDailyReminder(){
+  // Clear any existing timer
+  if(dailyReminderTimer) clearTimeout(dailyReminderTimer);
+
+  // Calculate ms until 10:00 AM PDT (UTC-7 = 17:00 UTC)
+  // We fire at 17:00 UTC which equals 10:00 AM PDT
+  const now = new Date();
+  const next10amPDT = new Date();
+  next10amPDT.setUTCHours(17,0,0,0); // 17:00 UTC = 10:00 AM PDT
+  if(now >= next10amPDT) next10amPDT.setUTCDate(next10amPDT.getUTCDate()+1); // tomorrow
+
+  const msUntil = next10amPDT - now;
+  dailyReminderTimer = setTimeout(()=>{
+    showReminderModal('daily');
+    // Reset for next day
+    setupDailyReminder();
+  }, msUntil);
+}
+
+// -----------------------------------
 // INIT -- decide which screen to show
 // -----------------------------------
 //    DEFAULT FIREBASE CONFIG (TalentPop-EA-Taskboard)   
@@ -1532,7 +1713,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // Close modals on backdrop click
-['modalBg','changePinBg','forgotBg','wsCodeBg'].forEach(id=>{
+['modalBg','changePinBg','forgotBg','wsCodeBg','reminderBg'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
 });
