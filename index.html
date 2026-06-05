@@ -491,6 +491,16 @@ td{padding:12px;vertical-align:middle;}
       <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="joinWorkspace()">Access Workspace →</button>
       <button class="lock-link" style="color:var(--accent);margin-top:10px;display:block;text-align:center;" onclick="openForgotFlow()">Forgot PIN?</button>
     </div>
+
+    <!-- Admin Login Panel (revealed by typing TPADMIN) -->
+    <div id="adminLoginSection" style="display:none;margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px;">&#128272; Admin Access</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Enter your admin PIN to access all workspaces.</div>
+      <div class="fg"><label>Admin PIN</label><input type="password" id="admin-pin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="&bull;&bull;&bull;&bull;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">First time? Type any 4-digit PIN to set it permanently.</div>
+      <div class="err-txt" id="admin-err"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="loginAsAdmin()">Enter Admin Dashboard &#8594;</button>
+    </div>
   </div>
 </div>
 
@@ -1689,19 +1699,21 @@ let adminWorkspaces=[];
 let adminDrillWsCode='';
 
 function checkAdminCode(){
-  const val = document.getElementById('j-code').value.trim().toUpperCase();
+  const codeEl = document.getElementById('j-code');
   const adminSection = document.getElementById('adminLoginSection');
-  const normalSection = document.querySelector('#joinExisting .fg'); // workspace code field parent
+  if(!codeEl || !adminSection) return;
+  const val = codeEl.value.trim().toUpperCase();
   if(val === ADMIN_SECRET){
     adminSection.style.display = 'block';
-    document.getElementById('j-code').parentElement.style.display = 'none';
-    document.getElementById('j-pin').parentElement.style.display = 'none';
-    document.querySelector('#joinExisting .err-txt').style.display = 'none';
-    document.querySelector('#joinExisting .btn-primary').style.display = 'none';
-    document.querySelector('#joinExisting .lock-link').style.display = 'none';
-    setTimeout(()=>document.getElementById('admin-pin').focus(), 100);
+    // Hide normal join fields
+    const fields = document.querySelectorAll('#joinExisting .fg, #joinExisting .err-txt, #joinExisting .btn-primary, #joinExisting .lock-link');
+    fields.forEach(el => { if(el) el.style.display = 'none'; });
+    setTimeout(()=>{ const p=document.getElementById('admin-pin'); if(p) p.focus(); }, 100);
   } else {
     adminSection.style.display = 'none';
+    // Restore normal join fields
+    const fields = document.querySelectorAll('#joinExisting .fg, #joinExisting .err-txt, #joinExisting .btn-primary, #joinExisting .lock-link');
+    fields.forEach(el => { if(el) el.style.display = ''; });
   }
 }
 
