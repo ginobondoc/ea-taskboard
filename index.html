@@ -485,7 +485,7 @@ td{padding:12px;vertical-align:middle;}
     </div>
     <div id="joinExisting" style="display:none;">
       <div id="j-fb-section" style="display:none;"></div>
-      <div class="fg"><label>Workspace Code</label><input type="text" id="j-code" placeholder="e.g. MKTA7B" style="text-transform:uppercase;letter-spacing:3px;" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="fg"><label>Workspace Code</label><input type="text" id="j-code" placeholder="e.g. MKTA7B" style="text-transform:uppercase;letter-spacing:3px;" oninput="this.value=this.value.toUpperCase();checkAdminCode()"></div>
       <div class="fg"><label>Your PIN</label><input type="password" id="j-pin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
       <div class="err-txt" id="j-err"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="joinWorkspace()">Access Workspace →</button>
