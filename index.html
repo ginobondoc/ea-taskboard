@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- EA TaskBoard v2.1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1824,9 +1825,41 @@ async function loadAdminDashboard(){
   renderAdmin();
 }
 
-function refreshAdmin(){loadAdminDashboard();toast('Dashboard refreshed');}
+function refreshAdmin(){
+  adminStatusFilter='';
+  loadAdminDashboard();
+  toast('Dashboard refreshed');
+}
+
+let adminStatusFilter='';
+function filterAdminByStatus(filter){
+  adminStatusFilter = adminStatusFilter===filter?'':filter; // toggle
+  renderAdminFiltered();
+}
+
+function renderAdminFiltered(){
+  const now=new Date();now.setHours(0,0,0,0);
+  const q=(document.getElementById('adminSearch')?.value||'').toLowerCase();
+  let filtered=adminWorkspaces.filter(ws=>
+    !q||(ws.eaName||'').toLowerCase().includes(q)||(ws.clientName||'').toLowerCase().includes(q)
+  );
+
+  if(adminStatusFilter==='overdue'){
+    filtered=filtered.filter(ws=>(ws.tasks||[]).some(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now));
+  } else if(adminStatusFilter==='inprogress'){
+    filtered=filtered.filter(ws=>(ws.tasks||[]).some(t=>t.status==='In Progress'));
+  } else if(adminStatusFilter==='done'){
+    filtered=filtered.filter(ws=>(ws.tasks||[]).some(t=>t.status==='Done'));
+  }
+
+  renderAdminTable(filtered);
+  if(adminStatusFilter){
+    toast(filtered.length+' EA'+(filtered.length!==1?'s':'')+' match filter: '+adminStatusFilter);
+  }
+}
 
 function renderAdmin(){
+  adminStatusFilter='';
   const q=(document.getElementById('adminSearch')?.value||'').toLowerCase();
   const filtered=adminWorkspaces.filter(ws=>
     !q||(ws.eaName||'').toLowerCase().includes(q)||(ws.clientName||'').toLowerCase().includes(q)
@@ -1845,15 +1878,20 @@ function renderAdmin(){
   });
 
   document.getElementById('adminStats').innerHTML=[
-    {label:'Workspaces',val:filtered.length,color:'var(--accent)'},
-    {label:'Total Tasks',val:totalTasks,color:'var(--text)'},
-    {label:'In Progress',val:totalIP,color:'var(--inprog)'},
-    {label:'Overdue',val:totalOverdue,color:totalOverdue>0?'var(--danger)':'var(--done)'},
-    {label:'Done',val:totalDone,color:'var(--done)'},
-  ].map(s=>`<div class="admin-stat-card">
-    <div class="admin-stat-num" style="color:${s.color};">${s.val}</div>
-    <div class="admin-stat-label">${s.label}</div>
-  </div>`).join('');
+    {label:'Workspaces',val:filtered.length,color:'var(--accent)',filter:''},
+    {label:'Total Tasks',val:totalTasks,color:'var(--text)',filter:''},
+    {label:'In Progress',val:totalIP,color:'var(--inprog)',filter:'inprogress'},
+    {label:'Overdue',val:totalOverdue,color:totalOverdue>0?'var(--danger)':'var(--done)',filter:'overdue'},
+    {label:'Done',val:totalDone,color:'var(--done)',filter:'done'},
+  ].map(s=>{
+    const style='cursor:'+(s.filter?'pointer':'default')+';';
+    const onclick=s.filter?' onclick="filterAdminByStatus(\'' +s.filter+ '\')"':'';
+    const badge=s.filter?' <span style="font-size:9px;opacity:.5">&#9660;</span>':'';
+    return '<div class="admin-stat-card" style="'+style+'"'+onclick+'>'
+      +'<div class="admin-stat-num" style="color:'+s.color+';">'+s.val+'</div>'
+      +'<div class="admin-stat-label">'+s.label+badge+'</div>'
+      +'</div>';
+  }).join('');
   setSyncStatus('live','Live -- all workspaces synced');
 
   if(!filtered.length){
@@ -1914,13 +1952,69 @@ async function openAdminDrill(code){
   const ws=adminWorkspaces.find(w=>w.code===code);
   if(!ws) return;
 
-  // Hide summary, show drill-down
-  document.getElementById('adminEAList').style.display='none';
-  document.getElementById('adminStats').style.display='none';
-  document.getElementById('adminSearch')?.parentElement?.parentElement?.querySelector('div:first-child') && 
-    (document.querySelector('#adminDashboard > div:first-child').style.display='none');
-  document.getElementById('adminDrillDown').style.display='block';
-  document.getElementById('adminDrillTitle').textContent=(ws.eaName||'EA')+' -- '+(ws.clientName||'Client')+' ('+code+')';
+  // Hide admin dashboard
+  document.getElementById('adminDashboard').style.display='none';
+
+  // Show normal app UI (tabs, toolbar, stats)
+  document.querySelectorAll('.tabs,.toolbar,.stats-bar').forEach(el=>el.style.display='');
+
+  // Add back-to-admin button in header
+  let backBtn = document.getElementById('adminBackBtn');
+  if(!backBtn){
+    backBtn = document.createElement('button');
+    backBtn.id = 'adminBackBtn';
+    backBtn.className = 'hbtn';
+    backBtn.style.cssText = 'background:rgba(200,245,90,.15);color:var(--accent);border-color:var(--accent);';
+    backBtn.onclick = closeAdminDrill;
+    document.getElementById('addTaskBtn').parentElement.prepend(backBtn);
+  }
+  backBtn.textContent = '← Admin';
+  backBtn.style.display = '';
+
+  // Update header to show EA name
+  document.getElementById('headerWsName').textContent = ws.clientName||'Client';
+  document.getElementById('headerClientName').textContent = (ws.eaName||'EA') + ' · ' + (ws.eaRole||'EA') + ' (Admin View)';
+  document.getElementById('addTaskBtn').style.display = '';
+
+  // Load this EA's workspace into the main task view
+  wsCode = code;
+  wsData = ws;
+  tasks = ws.tasks||[];
+  activeTab = 'list';
+  activeSF = 'all';
+
+  // Switch to list view
+  ['list','week','comments'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t==='list');
+    const v=document.getElementById('view-'+t);
+    if(v)v.classList.toggle('active',t==='list');
+  });
+  document.getElementById('listToolbar').style.display='flex';
+
+  render();
+
+  // Start real-time listener for this workspace
+  stopListeners();
+  if(!demoMode&&db){
+    let firstLoad=true;
+    unsubTasks=db.collection('workspaces').doc(code).collection('tasks')
+      .orderBy('created','asc')
+      .onSnapshot(snap=>{
+        tasks=snap.docs.map(d=>({id:d.id,...d.data()}));
+        // Sync back to adminWorkspaces
+        const adminWs=adminWorkspaces.find(w=>w.code===code);
+        if(adminWs) adminWs.tasks=tasks;
+        render();
+        if(firstLoad){firstLoad=false;}
+      });
+    unsubComments=db.collection('workspaces').doc(code).collection('comments')
+      .orderBy('ts','asc')
+      .onSnapshot(snap=>{
+        comments=snap.docs.map(d=>({id:d.id,...d.data()}));
+        renderComments();
+        updateCommentBadge();
+      });
+  }
 
   // Render tasks
   const now=new Date();now.setHours(0,0,0,0);
@@ -1944,12 +2038,6 @@ async function openAdminDrill(code){
 
   document.getElementById('adminDrillTasks').innerHTML=taskHtml||'<div style="color:var(--muted);font-size:13px;padding:20px 0;">No tasks in this workspace.</div>';
 
-  // Load comments
-  if(db){
-    const cSnap=await db.collection('workspaces').doc(code).collection('comments').orderBy('ts','asc').get();
-    const coms=cSnap.docs.map(d=>({id:d.id,...d.data()}));
-    renderAdminComments(coms);
-  }
 }
 
 function renderAdminComments(coms){
@@ -2020,13 +2108,28 @@ function openAdminAddTask(wsCode2){
 }
 
 function closeAdminDrill(){
+  // Stop current workspace listeners
+  stopListeners();
   adminDrillWsCode='';
-  document.getElementById('adminDrillDown').style.display='none';
-  document.getElementById('adminEAList').style.display='';
-  document.getElementById('adminStats').style.display='grid';
-  // Restore top bar
-  const topBar = document.querySelector('#adminDashboard > div:first-child');
-  if(topBar) topBar.style.display='flex';
+  tasks=[];comments=[];
+
+  // Hide normal EA UI
+  document.querySelectorAll('.tabs,.toolbar,.stats-bar').forEach(el=>el.style.display='none');
+
+  // Hide back button
+  const backBtn=document.getElementById('adminBackBtn');
+  if(backBtn) backBtn.style.display='none';
+
+  // Restore admin header
+  document.getElementById('headerWsName').textContent='TalentPop Admin';
+  document.getElementById('headerClientName').textContent='All Workspaces Dashboard';
+  document.getElementById('addTaskBtn').style.display='none';
+
+  // Show admin dashboard
+  document.getElementById('adminDashboard').style.display='block';
+
+  // Re-render the admin table (refresh data)
+  loadAdminDashboard();
 }
 
 function changeAdminPIN(){
