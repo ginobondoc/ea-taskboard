@@ -139,6 +139,15 @@ body{background:var(--bg);color:var(--text);font-family:'Epilogue',sans-serif;fo
 .notif-time{font-size:10px;color:var(--muted);margin-top:3px;}
 .notif-empty{text-align:center;padding:32px 16px;color:var(--muted);font-size:13px;}
 .mention-item{padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .15s;}
+.admin-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow);}
+.admin-stat-num{font-family:'Playfair Display',serif;font-size:28px;line-height:1;}
+.admin-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.ea-row{border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer;}
+.ea-row:hover{background:var(--surface2);}
+.health-pill{font-size:11px;padding:3px 8px;border-radius:100px;font-weight:500;}
+.health-ok{background:rgba(39,174,96,.12);color:var(--inprog);}
+.health-warn{background:rgba(212,130,10,.12);color:var(--review);}
+.health-crit{background:rgba(192,57,43,.12);color:var(--danger);}
 .mention-item:hover{background:var(--surface2);}
 /* Bigger comment button */
 .comment-btn-big{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:15px;transition:all .15s;margin-right:3px;}
@@ -426,14 +435,6 @@ td{padding:12px;vertical-align:middle;}
         </div>
         <div style="font-size:11px;color:var(--muted);">Share this PIN with your client so they can access the shared board.</div>
       </div>
-      <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;">Admin Access (Optional)</div>
-        <div class="fr">
-          <div class="fg"><label>Admin PIN (4 digits)</label><input type="password" id="pin-admin" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
-          <div class="fg"><label>Confirm Admin PIN</label><input type="password" id="pin-admin2" maxlength="4" inputmode="numeric" class="pin-inp" placeholder="••••"></div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);">Optional: set an admin PIN to enable the admin dashboard view. Must be different from EA and client PINs.</div>
-      </div>
       <div class="err-txt" id="pin-err"></div>
       <div class="modal-actions" style="justify-content:flex-start;">
         <button class="btn btn-primary" onclick="savePINSetup()">Continue →</button>
@@ -552,6 +553,7 @@ td{padding:12px;vertical-align:middle;}
       </div>
       <button class="hbtn" onclick="showWorkspaceCode()">📋 Code</button>
       <button class="hbtn" onclick="openChangePIN()">🔑 PIN</button>
+      <button class="hbtn" id="changeAdminPinBtn" onclick="changeAdminPIN()" style="display:none;" title="Change Admin PIN">🔑 Admin PIN</button>
       <button class="hbtn" onclick="lockApp()">🔒 Lock</button>
       <button class="btn btn-primary" id="addTaskBtn" onclick="openModal()">＋ Add Task</button>
     </div>
@@ -916,10 +918,7 @@ function savePINSetup(){
   wsData.pinClient=djb2(clientPin);
   wsData.phrase=djb2(phrase.toLowerCase().trim());
   wsData.created=todayStr();
-  // Admin PIN (optional)
-  const adminPin=document.getElementById('pin-admin')?.value||'';
-  const adminPin2=document.getElementById('pin-admin2')?.value||'';
-  if(adminPin&&adminPin===adminPin2) wsData.pinAdmin=djb2(adminPin);
+  // Admin access is handled globally via secret code, not per workspace
 
   document.getElementById('displayWsCode').textContent=wsCode;
   showStep(4);
@@ -1058,6 +1057,17 @@ async function joinWorkspace(){
 // LOCK SCREEN
 // -----------------------------------
 function showLock(ws,code){
+  // If returning admin, show admin login instead
+  if(lsGet('ea_last_role')==='admin'){
+    document.getElementById('lockScreen').classList.remove('show');
+    document.getElementById('joinScreen').classList.add('show');
+    switchJoinTab('join');
+    setTimeout(()=>{
+      document.getElementById('j-code').value='TPADMIN';
+      checkAdminCode();
+    },100);
+    return;
+  }
   wsCode=code; wsData=ws;
   document.getElementById('lockWsName').textContent=ws.clientName||'TaskBoard';
   document.getElementById('lockClientName').textContent=ws.eaName||'EA Command Center';
@@ -1088,7 +1098,7 @@ function checkLockPIN(){
   let role='';
   if(h===wsData.pinEA) role='ea';
   else if(h===wsData.pinClient) role='client';
-  else if(wsData.pinAdmin&&h===wsData.pinAdmin) role='admin';
+  // admin role handled via secret code on join screen
   if(role){
     failCount=0; setDotsState('success');
     setTimeout(()=>{
@@ -1109,7 +1119,18 @@ function checkLockPIN(){
 function lockApp(){
   stopListeners();
   document.getElementById('app').classList.remove('show');
-  showLock(wsData,wsCode);
+  // Reset admin-specific UI
+  document.getElementById('adminDashboard').style.display='none';
+  document.getElementById('adminDrillDown').style.display='none';
+  document.querySelectorAll('.tabs,.toolbar,.stats-bar').forEach(el=>el.style.display='');
+  if(currentUser.role==='admin'){
+    // Return to join screen for admin re-login
+    document.getElementById('joinScreen').classList.add('show');
+    switchJoinTab('join');
+    setTimeout(()=>{document.getElementById('j-code').value='TPADMIN';checkAdminCode();},100);
+  } else {
+    showLock(wsData,wsCode);
+  }
 }
 
 // -----------------------------------
@@ -1130,6 +1151,7 @@ function bootApp(code,role,fromLock=false){
 
   // Client can add/edit tasks too (as per requirement)
   document.getElementById('addTaskBtn').style.display=role==='admin'?'none':'';
+  document.getElementById('changeAdminPinBtn').style.display=role==='admin'?'':'none';
   // Admin dashboard
   if(role==='admin'){
     document.getElementById('adminDashboard').style.display='block';
@@ -1661,8 +1683,75 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 
 //    WORKSPACE CODE DISPLAY   
 // -- ADMIN DASHBOARD --
+const ADMIN_SECRET = 'TPADMIN'; // Secret code typed in workspace field
+const ADMIN_PIN_KEY = 'ea_admin_pin';
 let adminWorkspaces=[];
 let adminDrillWsCode='';
+
+function checkAdminCode(){
+  const val = document.getElementById('j-code').value.trim().toUpperCase();
+  const adminSection = document.getElementById('adminLoginSection');
+  const normalSection = document.querySelector('#joinExisting .fg'); // workspace code field parent
+  if(val === ADMIN_SECRET){
+    adminSection.style.display = 'block';
+    document.getElementById('j-code').parentElement.style.display = 'none';
+    document.getElementById('j-pin').parentElement.style.display = 'none';
+    document.querySelector('#joinExisting .err-txt').style.display = 'none';
+    document.querySelector('#joinExisting .btn-primary').style.display = 'none';
+    document.querySelector('#joinExisting .lock-link').style.display = 'none';
+    setTimeout(()=>document.getElementById('admin-pin').focus(), 100);
+  } else {
+    adminSection.style.display = 'none';
+  }
+}
+
+async function loginAsAdmin(){
+  const pin = document.getElementById('admin-pin').value;
+  const errEl = document.getElementById('admin-err');
+  if(!/^\d{4}$/.test(pin)){ errEl.textContent='PIN must be 4 digits.'; return; }
+
+  const savedHash = lsGet(ADMIN_PIN_KEY);
+
+  if(!savedHash){
+    // First time — set the admin PIN
+    lsSet(ADMIN_PIN_KEY, djb2(pin));
+    errEl.textContent='';
+    proceedToAdminDashboard();
+  } else {
+    if(djb2(pin) === savedHash){
+      errEl.textContent='';
+      proceedToAdminDashboard();
+    } else {
+      errEl.textContent='Incorrect admin PIN.';
+    }
+  }
+}
+
+function proceedToAdminDashboard(){
+  currentUser = {name:'Gino Bondoc', role:'admin'};
+  lsSet('ea_last_role','admin');
+  document.getElementById('joinScreen').classList.remove('show');
+
+  // Show app in admin mode
+  document.getElementById('app').classList.add('show');
+  document.getElementById('headerWsName').textContent='TalentPop Admin';
+  document.getElementById('headerClientName').textContent='All Workspaces Dashboard';
+  document.getElementById('currentUserName').textContent='Gino Bondoc';
+  document.getElementById('currentUserRole').textContent='ADMIN';
+  document.getElementById('addTaskBtn').style.display='none';
+  document.getElementById('adminDashboard').style.display='block';
+  document.querySelectorAll('.tabs,.toolbar,.stats-bar').forEach(el=>el.style.display='none');
+
+  // Init Firebase if needed
+  if(!db){
+    const cfg=JSON.parse(lsGet('ea_fb_cfg')||'{}');
+    if(cfg.apiKey) initFirebase(cfg);
+    else initFirebase(DEFAULT_FB_CFG);
+  }
+
+  setSyncStatus('syncing','Loading all workspaces...');
+  loadAdminDashboard();
+}
 
 async function loadAdminDashboard(){
   if(!db) return;
@@ -1707,10 +1796,11 @@ function renderAdmin(){
     {label:'In Progress',val:totalIP,color:'var(--inprog)'},
     {label:'Overdue',val:totalOverdue,color:totalOverdue>0?'var(--danger)':'var(--done)'},
     {label:'Done',val:totalDone,color:'var(--done)'},
-  ].map(s=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);">
-    <div style="font-family:'Playfair Display',serif;font-size:26px;color:${s.color};">${s.val}</div>
-    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;">${s.label}</div>
+  ].map(s=>`<div class="admin-stat-card">
+    <div class="admin-stat-num" style="color:${s.color};">${s.val}</div>
+    <div class="admin-stat-label">${s.label}</div>
   </div>`).join('');
+  setSyncStatus('live','Live -- all workspaces synced');
 
   if(!filtered.length){
     document.getElementById('adminEAList').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">No workspaces found.</div>';
@@ -1747,8 +1837,9 @@ function renderAdmin(){
           const ip=tasks2.filter(t=>t.status==='In Progress').length;
           const done=tasks2.filter(t=>t.status==='Done').length;
           const ov=tasks2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
-          const health=ov>3?'🔴 Critical':ov>0?'🟡 At Risk':'🟢 On Track';
-          return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" onclick="openAdminDrill('${ws.code}')">
+          const healthLabel=ov>3?'Critical':ov>0?'At Risk':'On Track';
+          const healthCls=ov>3?'health-crit':ov>0?'health-warn':'health-ok';
+          return `<tr class="ea-row" onclick="openAdminDrill('${ws.code}')">
             <td style="padding:13px 12px;font-weight:500;">${ws.eaName||'--'}</td>
             <td style="padding:13px 12px;color:var(--muted);font-size:13px;">${ws.clientName||'--'}</td>
             <td style="padding:13px 12px;text-align:center;">${total}</td>
@@ -1756,7 +1847,7 @@ function renderAdmin(){
             <td style="padding:13px 12px;text-align:center;color:var(--inprog);">${ip}</td>
             <td style="padding:13px 12px;text-align:center;font-weight:600;color:${ov>0?'var(--danger)':'var(--muted)'};">${ov>0?'⚠ '+ov:ov}</td>
             <td style="padding:13px 12px;text-align:center;color:var(--done);">${done}</td>
-            <td style="padding:13px 12px;text-align:center;font-size:13px;">${health}</td>
+            <td style="padding:13px 12px;text-align:center;"><span class="health-pill ${healthCls}">${healthLabel}</span></td>
             <td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="event.stopPropagation();openAdminDrill('${ws.code}')">View →</button></td>
           </tr>`;
         }).join('')}
@@ -1836,6 +1927,15 @@ function closeAdminDrill(){
   document.getElementById('adminDrillDown').style.display='none';
   document.getElementById('adminEAList').style.display='';
   document.getElementById('adminStats').style.display='';
+}
+
+function changeAdminPIN(){
+  const newPin=prompt('Enter new 4-digit admin PIN:');
+  if(!newPin||!/^\d{4}$/.test(newPin)){alert('PIN must be exactly 4 digits.');return;}
+  const confirm=prompt('Confirm new admin PIN:');
+  if(newPin!==confirm){alert('PINs do not match.');return;}
+  lsSet(ADMIN_PIN_KEY,djb2(newPin));
+  toast('Admin PIN updated!');
 }
 
 function showWorkspaceCode(){
