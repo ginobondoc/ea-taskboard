@@ -1865,51 +1865,36 @@ function buildEATable(filtered){
     document.getElementById('adminEAList').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">No workspaces found.</div>';
     return;
   }
-  // Sort by most overdue first
   filtered.sort((a,b)=>{
     const ovA=(a.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
     const ovB=(b.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
     return ovB-ovA;
   });
-  document.getElementById('adminEAList').innerHTML=`
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="border-bottom:2px solid var(--border);">
-          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">EA Name</th>
-          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Client</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Total</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">To Do</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">In Progress</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Overdue</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Done</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Health</th>
-          <th style="padding:10px 12px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        \${filtered.map((ws,ri)=>{
-          const tasks2=ws.tasks||[];
-          const total=tasks2.length;
-          const todo=tasks2.filter(t=>t.status==='To Do').length;
-          const ip=tasks2.filter(t=>t.status==='In Progress').length;
-          const done=tasks2.filter(t=>t.status==='Done').length;
-          const ov=tasks2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
-          const healthLabel=ov>3?'Critical':ov>0?'At Risk':'On Track';
-          const healthCls=ov>3?'health-crit':ov>0?'health-warn':'health-ok';
-          return \`<tr class="ea-row" onclick="openAdminDrill('\${ws.code}')">
-            <td style="padding:13px 12px;font-weight:500;">\${ws.eaName||'--'}</td>
-            <td style="padding:13px 12px;color:var(--muted);font-size:13px;">\${ws.clientName||'--'}</td>
-            <td style="padding:13px 12px;text-align:center;">\${total}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--todo);">\${todo}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--inprog);">\${ip}</td>
-            <td style="padding:13px 12px;text-align:center;font-weight:600;color:\${ov>0?'var(--danger)':'var(--muted)'};">\${ov>0?'⚠ '+ov:ov}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--done);">\${done}</td>
-            <td style="padding:13px 12px;text-align:center;"><span class="health-pill \${healthCls}">\${healthLabel}</span></td>
-            <td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="event.stopPropagation();openAdminDrill('\${ws.code}')">View →</button></td>
-          </tr>\`;
-        }).join('')}
-      </tbody>
-    </table>`;
+  const cols=['EA Name','Client','Total','To Do','In Progress','Overdue','Done','Health',''];
+  const headers=cols.map(h=>'<th style="text-align:'+(h&&h!==''?'left':'center')+';padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">'+h+'</th>').join('');
+  const rows=filtered.map(ws=>{
+    const t2=ws.tasks||[];
+    const total=t2.length;
+    const todo=t2.filter(t=>t.status==='To Do').length;
+    const ip=t2.filter(t=>t.status==='In Progress').length;
+    const done=t2.filter(t=>t.status==='Done').length;
+    const ov=t2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+    const hl=ov>3?'Critical':ov>0?'At Risk':'On Track';
+    const hc=ov>3?'health-crit':ov>0?'health-warn':'health-ok';
+    const ovCell=ov>0?'<span style="font-weight:600;color:var(--danger);">&#9888; '+ov+'</span>':ov;
+    return '<tr class="ea-row" data-code="'+ws.code+'">'
+      +'<td style="padding:13px 12px;font-weight:500;">'+(ws.eaName||'--')+'</td>'
+      +'<td style="padding:13px 12px;color:var(--muted);font-size:13px;">'+(ws.clientName||'--')+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;">'+total+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;color:var(--todo);">'+todo+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;color:var(--inprog);">'+ip+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;">'+ovCell+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;color:var(--done);">'+done+'</td>'
+      +'<td style="padding:13px 12px;text-align:center;"><span class="health-pill '+hc+'">'+hl+'</span></td>'
+      +'<td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" data-drill="'+ws.code+'">View &#8594;</button></td>'
+      +'</tr>';
+  }).join('');
+  document.getElementById('adminEAList').innerHTML='<table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:2px solid var(--border);">'+headers+'</tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 function renderAdmin(){
