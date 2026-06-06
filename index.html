@@ -2158,6 +2158,179 @@ function changeAdminPIN(){
   toast('Admin PIN updated!');
 }
 
+
+// =============================================
+// NOTIFICATION SYSTEM
+// =============================================
+const NOTIF_KEY=()=>'ea_notifs_'+(wsCode||'x')+'_'+(currentUser.role||'ea');
+
+function loadNotifications(){
+  try{return JSON.parse(lsGet(NOTIF_KEY())||'[]');}catch(e){return[];}
+}
+function saveNotifications(n){lsSet(NOTIF_KEY(),JSON.stringify(n.slice(0,50)));}
+
+function addNotification(type,text,taskId){
+  if(!wsCode) return;
+  const n=loadNotifications();
+  n.unshift({id:uid(),type,text,taskId:taskId||'',time:Date.now(),read:false});
+  saveNotifications(n);
+  renderNotifBadge();
+  updateCommentBadge();
+}
+
+function renderNotifBadge(){
+  const n=loadNotifications();
+  const unread=n.filter(x=>!x.read).length;
+  const badge=document.getElementById('notifBadge');
+  if(!badge)return;
+  if(unread>0){badge.textContent=unread>99?'99+':unread;badge.style.display='flex';}
+  else badge.style.display='none';
+}
+
+function renderNotifPanel(){
+  const n=loadNotifications();
+  const list=document.getElementById('notifList');
+  if(!list)return;
+  if(!n.length){list.innerHTML='<div class="notif-empty">No notifications yet.<br><small>Add a task, complete one, or post a comment.</small></div>';return;}
+  const icons={task:'📋',comment:'💬',mention:'🔔',done:'✅',reminder:'⏰'};
+  list.innerHTML=n.map(x=>{
+    const icon=icons[x.type]||'🔔';
+    return '<div class="notif-item '+(x.read?'':'unread')+'" data-nid="'+x.id+'" data-tid="'+x.taskId+'"><div class="notif-dot"></div><div class="notif-content"><div class="notif-text">'+icon+' '+escHtml(x.text)+'</div><div class="notif-time">'+formatTime(x.time)+'</div></div></div>';
+  }).join('');
+  // Attach click handlers
+  document.querySelectorAll('#notifList [data-nid]').forEach(function(el){
+    el.addEventListener('click',function(){clickNotif(el.getAttribute('data-nid'),el.getAttribute('data-tid'));});
+  });
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notifPanel');
+  if(!panel)return;
+  const isOpen=panel.style.display==='flex';
+  if(isOpen){
+    panel.style.display='none';
+  } else {
+    panel.style.display='flex';
+    renderNotifPanel();
+    // Mark all read when opened
+    const n=loadNotifications();
+    n.forEach(x=>x.read=true);
+    saveNotifications(n);
+    renderNotifBadge();
+    updateCommentBadge();
+  }
+}
+
+function clickNotif(id,taskId){
+  document.getElementById('notifPanel').style.display='none';
+  if(taskId&&taskId!==''){switchTab('list');setTimeout(()=>editTask(taskId),200);}
+}
+
+function markAllNotifsRead(){
+  const n=loadNotifications();
+  n.forEach(x=>x.read=true);
+  saveNotifications(n);
+  renderNotifBadge();
+  renderNotifPanel();
+  updateCommentBadge();
+}
+
+function updateCommentBadge(){
+  const n=loadNotifications();
+  const unread=n.filter(x=>!x.read&&(x.type==='comment'||x.type==='mention')).length;
+  const badge=document.getElementById('commentBadge');
+  if(!badge)return;
+  if(unread>0){badge.textContent=unread;badge.style.display='';}
+  else badge.style.display='none';
+}
+
+// =============================================
+// @MENTION SYSTEM
+// =============================================
+let mentionStart=-1;
+
+function setupMentionListener(){
+  const input=document.getElementById('commentInput');
+  if(!input)return;
+  // Remove old listeners by cloning
+  const newInput=input.cloneNode(true);
+  input.parentNode.replaceChild(newInput,input);
+  newInput.addEventListener('input',handleMentionInput);
+  newInput.addEventListener('keydown',handleMentionKey);
+}
+
+function handleMentionInput(e){
+  const input=e.target;
+  const val=input.value;
+  const pos=input.selectionStart;
+  let atIdx=-1;
+  for(let i=pos-1;i>=0;i--){
+    if(val[i]==='@'){atIdx=i;break;}
+    if(val[i]===' '||val[i]==='\n')break;
+  }
+  if(atIdx>=0){
+    mentionStart=atIdx;
+    showMentionDropdown(val.slice(atIdx+1,pos).toLowerCase(),input);
+  } else {
+    hideMentionDropdown();
+  }
+}
+
+function getMentionables(){
+  const p=[];
+  if(wsData.eaName)p.push({name:wsData.eaName,role:'EA'});
+  if(wsData.clientContact)p.push({name:wsData.clientContact,role:'Client'});
+  if(wsData.clientName&&wsData.clientName!==wsData.clientContact)p.push({name:wsData.clientName,role:'Client'});
+  return p;
+}
+
+function showMentionDropdown(query,inputEl){
+  const people=getMentionables().filter(p=>p.name.toLowerCase().includes(query));
+  const dd=document.getElementById('mentionDropdown');
+  if(!dd||!people.length){hideMentionDropdown();return;}
+  const rect=inputEl.getBoundingClientRect();
+  dd.style.cssText='display:block;position:fixed;left:'+rect.left+'px;bottom:'+(window.innerHeight-rect.top+4)+'px;z-index:600;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:180px;';
+  dd.innerHTML=people.map(p=>'<div class="mention-item" data-mname="'+p.name+'">@'+p.name+' <span style="font-size:10px;color:var(--muted);">'+p.role+'</span></div>').join('');
+  dd.querySelectorAll('[data-mname]').forEach(function(el){el.addEventListener('click',function(){insertMention(el.getAttribute('data-mname'));});});
+}
+
+function hideMentionDropdown(){
+  const dd=document.getElementById('mentionDropdown');
+  if(dd)dd.style.display='none';
+  mentionStart=-1;
+}
+
+function insertMention(name){
+  const input=document.getElementById('commentInput');
+  if(!input)return;
+  const val=input.value;
+  const pos=input.selectionStart;
+  input.value=val.slice(0,mentionStart)+'@'+name+' '+val.slice(pos);
+  input.focus();
+  hideMentionDropdown();
+}
+
+function handleMentionKey(e){
+  const dd=document.getElementById('mentionDropdown');
+  if(dd&&dd.style.display==='block'){
+    if(e.key==='Escape'){hideMentionDropdown();e.preventDefault();}
+    if(e.key==='Enter'){const first=dd.querySelector('.mention-item');if(first){first.click();e.preventDefault();}}
+  }
+}
+
+function extractMentions(text){
+  const matches=text.match(/@([A-Za-z][A-Za-z ]*?)(?=\s|$|[,.])/g)||[];
+  return matches.map(m=>m.slice(1).trim());
+}
+
+// Close panels when clicking outside
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#notifPanel')&&!e.target.closest('.notif-bell-wrap'))
+    document.getElementById('notifPanel') && (document.getElementById('notifPanel').style.display='none');
+  if(!e.target.closest('#mentionDropdown')&&!e.target.closest('#commentInput'))
+    hideMentionDropdown();
+});
+
 function showWorkspaceCode(){
   document.getElementById('modalWsCode').textContent=wsCode;
   document.getElementById('modalWsCode2').textContent=wsCode;
