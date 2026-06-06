@@ -1895,6 +1895,16 @@ function buildEATable(filtered){
       +'</tr>';
   }).join('');
   document.getElementById('adminEAList').innerHTML='<table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:2px solid var(--border);">'+headers+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  // Attach click handlers via event delegation
+  document.querySelectorAll('#adminEAList tr[data-code]').forEach(function(row){
+    row.style.cursor='pointer';
+    row.addEventListener('mouseover',function(){row.style.background='var(--surface2)';});
+    row.addEventListener('mouseout',function(){row.style.background='';});
+    row.addEventListener('click',function(){openAdminDrill(row.getAttribute('data-code'));});
+  });
+  document.querySelectorAll('#adminEAList button[data-drill]').forEach(function(btn){
+    btn.addEventListener('click',function(e){e.stopPropagation();openAdminDrill(btn.getAttribute('data-drill'));});
+  });
 }
 
 function renderAdmin(){
