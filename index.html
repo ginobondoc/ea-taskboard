@@ -1603,15 +1603,26 @@ function onProgressChange(){
   else note.classList.remove('show');
 }
 function onStatusChange(){
-  const s=document.getElementById('f-status').value;const note=document.getElementById('consistencyNote');
-  if(s==='Done'){document.getElementById('f-progress').value=100;note.textContent='✅ Status Done -- progress auto-set to 100%.';note.classList.add('show');}
-  else note.classList.remove('show');
+  const s=document.getElementById('f-status').value;
+  const note=document.getElementById('consistencyNote');
+  const currentProgress=parseInt(document.getElementById('f-progress').value)||0;
+  if(s==='Done'){
+    document.getElementById('f-progress').value=100;
+    note.textContent='Status set to Done -- progress auto-set to 100%.';
+    note.classList.add('show');
+  } else if(s!=='Done'&&currentProgress===100){
+    document.getElementById('f-progress').value=90;
+    note.textContent='Status changed from Done -- progress set to 90%. Adjust if needed.';
+    note.classList.add('show');
+  } else {
+    note.classList.remove('show');
+  }
 }
 
 function openModal(id){
   editId=id||null;const t=id?tasks.find(x=>x.id===id):null;
   document.getElementById('modalTitle').textContent=id?'Edit Task':'New Task';
-  document.getElementById('modalSub').textContent=id?'Update task details.':'Add a new task to the board.';
+  document.getElementById('modalSub').textContent=id?'Update task details. You can change the status to any value here.':'Add a new task to the board.';
   ['task','notes','assignee'].forEach(f=>document.getElementById('f-'+f).value=t?(t[f]||''):'');
   document.getElementById('f-category').value=t?(t.category||''):'';
   document.getElementById('f-status').value=t?t.status:'To Do';
