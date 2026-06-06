@@ -1417,11 +1417,22 @@ function getFiltered(){
 }
 function sortTasks(list){
   return[...list].sort((a,b)=>{
+    // Pinned tasks always float to top
+    if(a.pinned&&!b.pinned) return -1;
+    if(!a.pinned&&b.pinned) return 1;
     let av=a[sortField]||'',bv=b[sortField]||'';
     if(sortField==='priority'){av=PRIO_ORDER[av]??99;bv=PRIO_ORDER[bv]??99;}
     if(sortField==='progress'){av=parseInt(av)||0;bv=parseInt(bv)||0;}
     if(av<bv)return-1*sortDir;if(av>bv)return 1*sortDir;return 0;
   });
+}
+
+async function togglePin(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t) return;
+  const updated={...t, pinned:!t.pinned};
+  await updateTaskInDb(updated);
+  toast(updated.pinned?'Task pinned 📌':'Task unpinned');
 }
 function updateSortArrows(){
   ['task','category','status','priority','deadline','progress'].forEach(f=>{
@@ -1463,13 +1474,14 @@ function render(){
   document.getElementById('cardList').innerHTML=filtered.map(t=>{
     const dc=dlClass(t.deadline);const isOv=dc==='overdue'&&t.status!=='Done';
     return`<div class="tc ${isOv?'ov':''}" onclick="editTask('${t.id}')">
-      <div class="tc-top"><div class="tc-name">${escHtml(t.task)}</div>${prioSpan(t.priority)}</div>
+      <div class="tc-top"><div class="tc-name">${t.pinned?'📌 ':''}${escHtml(t.task)}</div>${prioSpan(t.priority)}</div>
       <div class="tc-meta">${statusPill(t.status)}${t.category?`<span class="ct">${escHtml(t.category)}</span>`:''}<span class="dl ${dc}">${dlLabel(t.deadline)}</span></div>
       ${t.notes?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${escHtml(t.notes.slice(0,80))}${t.notes.length>80?'...':''}</div>`:''}
       ${pBar(t.progress)}
       <div class="tc-actions" style="margin-top:8px" onclick="event.stopPropagation()">
         <button class="ab" onclick="cycleStatus('${t.id}')">↻ Next Status</button>
         <button class="comment-btn-big" onclick="openCommentForTask('${t.id}')">💬 Comment</button>
+        <button class="ab" onclick="togglePin('${t.id}')" style="${t.pinned?'color:var(--accent2);border-color:var(--accent2);':''}">📌 ${t.pinned?'Unpin':'Pin'}</button>
         <button class="ab del" onclick="deleteTask('${t.id}')">✕</button>
       </div>
     </div>`;
@@ -1626,6 +1638,7 @@ async function saveTask(){
   let status=document.getElementById('f-status').value;
   if(status==='Done')progress=100;if(progress===100)status='Done';
   const recurring=document.getElementById('f-recurring').value||'';
+  const existingTask=editId?tasks.find(t=>t.id===editId):null;
   const obj={
     id:editId||uid(),task,
     notes:document.getElementById('f-notes').value.trim(),
@@ -1634,8 +1647,9 @@ async function saveTask(){
     status,priority:document.getElementById('f-priority').value,
     deadline:document.getElementById('f-deadline').value,progress,
     recurring,
+    pinned:existingTask?existingTask.pinned||false:false,
     createdBy:currentUser.role,
-    created:editId?(tasks.find(t=>t.id===editId)?.created||todayStr()):todayStr()
+    created:existingTask?(existingTask.created||todayStr()):todayStr()
   };
   if(editId)await updateTaskInDb(obj);else await addTaskToDb(obj);
   // Notify on new task
@@ -2195,7 +2209,14 @@ function renderNotifPanel(){
   const icons={task:'📋',comment:'💬',mention:'🔔',done:'✅',reminder:'⏰'};
   list.innerHTML=n.map(x=>{
     const icon=icons[x.type]||'🔔';
-    return '<div class="notif-item '+(x.read?'':'unread')+'" data-nid="'+x.id+'" data-tid="'+x.taskId+'"><div class="notif-dot"></div><div class="notif-content"><div class="notif-text">'+icon+' '+escHtml(x.text)+'</div><div class="notif-time">'+formatTime(x.time)+'</div></div></div>';
+    return '<div class="notif-item '+(x.read?'':'unread')+'" data-nid="'+x.id+'" data-tid="'+x.taskId+'">'
+      +'<div class="notif-dot"></div>'
+      +'<div class="notif-content notif-body" style="cursor:pointer;flex:1;">'
+      +'<div class="notif-text">'+icon+' '+escHtml(x.text)+'</div>'
+      +'<div class="notif-time">'+formatTime(x.time)+'</div>'
+      +'</div>'
+      +'<button class="notif-toggle" title="'+(x.read?'Mark unread':'Mark read')+'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:10px;white-space:nowrap;font-family:Epilogue,sans-serif;">'+( x.read?'Unread':'Read')+'</button>'
+      +'</div>';
   }).join('');
   // Attach click handlers
   document.querySelectorAll('#notifList [data-nid]').forEach(function(el){
@@ -2229,6 +2250,16 @@ function clickNotif(id,taskId){
 function markAllNotifsRead(){
   const n=loadNotifications();
   n.forEach(x=>x.read=true);
+  saveNotifications(n);
+  renderNotifBadge();
+  renderNotifPanel();
+  updateCommentBadge();
+}
+
+function toggleNotifRead(id){
+  const n=loadNotifications();
+  const item=n.find(x=>x.id===id);
+  if(item) item.read=!item.read;
   saveNotifications(n);
   renderNotifBadge();
   renderNotifPanel();
