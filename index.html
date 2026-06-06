@@ -1852,10 +1852,64 @@ function renderAdminFiltered(){
     filtered=filtered.filter(ws=>(ws.tasks||[]).some(t=>t.status==='Done'));
   }
 
-  renderAdminTable(filtered);
+  // Re-render the EA table with filtered results
+  buildEATable(filtered);
   if(adminStatusFilter){
     toast(filtered.length+' EA'+(filtered.length!==1?'s':'')+' match filter: '+adminStatusFilter);
   }
+}
+
+function buildEATable(filtered){
+  const now=new Date();now.setHours(0,0,0,0);
+  if(!filtered||!filtered.length){
+    document.getElementById('adminEAList').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">No workspaces found.</div>';
+    return;
+  }
+  // Sort by most overdue first
+  filtered.sort((a,b)=>{
+    const ovA=(a.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+    const ovB=(b.tasks||[]).filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+    return ovB-ovA;
+  });
+  document.getElementById('adminEAList').innerHTML=`
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">EA Name</th>
+          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Client</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Total</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">To Do</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">In Progress</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Overdue</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Done</th>
+          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Health</th>
+          <th style="padding:10px 12px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        \${filtered.map((ws,ri)=>{
+          const tasks2=ws.tasks||[];
+          const total=tasks2.length;
+          const todo=tasks2.filter(t=>t.status==='To Do').length;
+          const ip=tasks2.filter(t=>t.status==='In Progress').length;
+          const done=tasks2.filter(t=>t.status==='Done').length;
+          const ov=tasks2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
+          const healthLabel=ov>3?'Critical':ov>0?'At Risk':'On Track';
+          const healthCls=ov>3?'health-crit':ov>0?'health-warn':'health-ok';
+          return \`<tr class="ea-row" onclick="openAdminDrill('\${ws.code}')">
+            <td style="padding:13px 12px;font-weight:500;">\${ws.eaName||'--'}</td>
+            <td style="padding:13px 12px;color:var(--muted);font-size:13px;">\${ws.clientName||'--'}</td>
+            <td style="padding:13px 12px;text-align:center;">\${total}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--todo);">\${todo}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--inprog);">\${ip}</td>
+            <td style="padding:13px 12px;text-align:center;font-weight:600;color:\${ov>0?'var(--danger)':'var(--muted)'};">\${ov>0?'⚠ '+ov:ov}</td>
+            <td style="padding:13px 12px;text-align:center;color:var(--done);">\${done}</td>
+            <td style="padding:13px 12px;text-align:center;"><span class="health-pill \${healthCls}">\${healthLabel}</span></td>
+            <td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="event.stopPropagation();openAdminDrill('\${ws.code}')">View →</button></td>
+          </tr>\`;
+        }).join('')}
+      </tbody>
+    </table>`;
 }
 
 function renderAdmin(){
@@ -1885,13 +1939,19 @@ function renderAdmin(){
     {label:'Done',val:totalDone,color:'var(--done)',filter:'done'},
   ].map(s=>{
     const style='cursor:'+(s.filter?'pointer':'default')+';';
-    const onclick=s.filter?' onclick="filterAdminByStatus(\'' +s.filter+ '\')"':'';
+    const data=s.filter?' data-filter="'+s.filter+'"':'';
     const badge=s.filter?' <span style="font-size:9px;opacity:.5">&#9660;</span>':'';
-    return '<div class="admin-stat-card" style="'+style+'"'+onclick+'>'
+    return '<div class="admin-stat-card" style="'+style+'"'+data+'>'
       +'<div class="admin-stat-num" style="color:'+s.color+';">'+s.val+'</div>'
       +'<div class="admin-stat-label">'+s.label+badge+'</div>'
       +'</div>';
   }).join('');
+  // Attach click handlers via event delegation
+  setTimeout(()=>{
+    document.querySelectorAll('#adminStats .admin-stat-card[data-filter]').forEach(el=>{
+      el.addEventListener('click',()=>filterAdminByStatus(el.getAttribute('data-filter')));
+    });
+  },100);
   setSyncStatus('live','Live -- all workspaces synced');
 
   if(!filtered.length){
@@ -1906,45 +1966,7 @@ function renderAdmin(){
     return ovB-ovA;
   });
 
-  document.getElementById('adminEAList').innerHTML=`
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="border-bottom:2px solid var(--border);">
-          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">EA Name</th>
-          <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Client</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Total</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">To Do</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">In Progress</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Overdue</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Done</th>
-          <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);">Health</th>
-          <th style="padding:10px 12px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map((ws,ri)=>{
-          const tasks2=ws.tasks||[];
-          const total=tasks2.length;
-          const todo=tasks2.filter(t=>t.status==='To Do').length;
-          const ip=tasks2.filter(t=>t.status==='In Progress').length;
-          const done=tasks2.filter(t=>t.status==='Done').length;
-          const ov=tasks2.filter(t=>t.status!=='Done'&&t.deadline&&new Date(t.deadline)<now).length;
-          const healthLabel=ov>3?'Critical':ov>0?'At Risk':'On Track';
-          const healthCls=ov>3?'health-crit':ov>0?'health-warn':'health-ok';
-          return `<tr class="ea-row" onclick="openAdminDrill('${ws.code}')">
-            <td style="padding:13px 12px;font-weight:500;">${ws.eaName||'--'}</td>
-            <td style="padding:13px 12px;color:var(--muted);font-size:13px;">${ws.clientName||'--'}</td>
-            <td style="padding:13px 12px;text-align:center;">${total}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--todo);">${todo}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--inprog);">${ip}</td>
-            <td style="padding:13px 12px;text-align:center;font-weight:600;color:${ov>0?'var(--danger)':'var(--muted)'};">${ov>0?'⚠ '+ov:ov}</td>
-            <td style="padding:13px 12px;text-align:center;color:var(--done);">${done}</td>
-            <td style="padding:13px 12px;text-align:center;"><span class="health-pill ${healthCls}">${healthLabel}</span></td>
-            <td style="padding:13px 12px;"><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="event.stopPropagation();openAdminDrill('${ws.code}')">View →</button></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
+  buildEATable(filtered);;
 }
 
 async function openAdminDrill(code){
