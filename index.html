@@ -2220,7 +2220,16 @@ function renderNotifPanel(){
   }).join('');
   // Attach click handlers
   document.querySelectorAll('#notifList [data-nid]').forEach(function(el){
-    el.addEventListener('click',function(){clickNotif(el.getAttribute('data-nid'),el.getAttribute('data-tid'));});
+    var body = el.querySelector('.notif-body');
+    var toggle = el.querySelector('.notif-toggle');
+    if(body) body.addEventListener('click',function(e){
+      e.stopPropagation();
+      clickNotif(el.getAttribute('data-nid'),el.getAttribute('data-tid'));
+    });
+    if(toggle) toggle.addEventListener('click',function(e){
+      e.stopPropagation();
+      toggleNotifRead(el.getAttribute('data-nid'));
+    });
   });
 }
 
