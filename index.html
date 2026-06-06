@@ -330,7 +330,7 @@ td{padding:12px;vertical-align:middle;}
 .pin-inp{letter-spacing:6px;font-size:18px;text-align:center;}
 
 /* Toast */
-.toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:11px 16px;border-radius:9px;font-size:13px;z-index:600;transform:translateY(60px);opacity:0;transition:all .3s;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:11px 16px;border-radius:9px;font-size:13px;z-index:600;transform:translateY(60px);opacity:0;transition:all .3s;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;}
 .toast.show{transform:translateY(0);opacity:1;}
 
 /* Responsive */
@@ -1526,9 +1526,13 @@ function shiftWeek(dir){weekOffset=dir===0?0:weekOffset+dir;renderWeek();}
 function filterStatus(s){activeSF=s;render();}
 function sortBy(f){if(sortField===f)sortDir=-sortDir;else{sortField=f;sortDir=1;}render();}
 
+let lastStatusChange=null;
+
 async function cycleStatus(id){
   const t=tasks.find(x=>x.id===id);if(!t)return;
   const i=STATUSES.indexOf(t.status);
+  // Store previous state for undo
+  lastStatusChange={id, prevStatus:t.status, prevProgress:t.progress||0};
   const updated={...t,status:STATUSES[(i+1)%STATUSES.length]};
   if(updated.status==='Done')updated.progress=100;
   else if(updated.progress===100)updated.progress=90;
@@ -1537,7 +1541,17 @@ async function cycleStatus(id){
   if(updated.status==='Done'&&updated.recurring) await createRecurringInstance(updated);
   // Notify client when task done
   if(updated.status==='Done') addNotification('done','Task completed: '+updated.task, updated.id);
-  toast('Status -> '+updated.status);
+  toastWithUndo('Status -> '+updated.status);
+}
+
+async function undoStatusChange(){
+  if(!lastStatusChange) return;
+  const t=tasks.find(x=>x.id===lastStatusChange.id);
+  if(!t) return;
+  const updated={...t, status:lastStatusChange.prevStatus, progress:lastStatusChange.prevProgress};
+  await updateTaskInDb(updated);
+  lastStatusChange=null;
+  toast('Reverted to: '+updated.status);
 }
 
 async function deleteTask(id){
@@ -1757,7 +1771,25 @@ function exportCSV(){
 }
 
 //    TOAST   
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2700);}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML='<span>'+escHtml(msg)+'</span>';
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.classList.remove('show');},2700);
+}
+
+function toastWithUndo(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML='<span style="flex:1;">'+escHtml(msg)+'</span>'
+    +'<button onclick="undoStatusChange()" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.5);color:#fff;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;font-family:Epilogue,sans-serif;white-space:nowrap;">↩ Undo</button>';
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{
+    t.classList.remove('show');
+    lastStatusChange=null;
+  },5000);
+}
 
 //    WORKSPACE CODE DISPLAY   
 // -- ADMIN DASHBOARD --
