@@ -19,6 +19,30 @@
   --todo:#2980b9;--inprog:#27ae60;--review:#d4820a;--done:#8e44ad;
   --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.07);
 }
+/* Dark mode */
+body.dark{
+  --bg:#0f0f17;--surface:#1a1a2e;--surface2:#12121e;--border:#2a2a40;
+  --accent:#c8a96e;--accent2:#a07840;--text:#e8e0d0;--muted:#6a6580;
+  --danger:#e05a4a;--warn:#e09020;
+  --todo:#4a9fd4;--inprog:#3ac870;--review:#e09020;--done:#a86ad4;
+  --shadow:0 2px 12px rgba(0,0,0,.4);
+}
+body.dark .app-header{background:#0a0a14;}
+body.dark .lock-card{background:rgba(255,255,255,.04);}
+body.dark .join-card{background:#1a1a2e;}
+body.dark .setup-card{background:#1a1a2e;}
+body.dark .deploy-card{background:#0a0a14;}
+body.dark .modal{background:#1a1a2e;}
+body.dark input,body.dark select,body.dark textarea{background:#12121e!important;color:var(--text)!important;border-color:#2a2a40!important;}
+body.dark .pin-btn{background:rgba(255,255,255,.06);}
+body.dark thead th{background:#12121e;}
+body.dark .tc{background:#1a1a2e;}
+body.dark .day-col{background:#1a1a2e;}
+body.dark .dtc{background:#12121e;}
+body.dark .kanban-col{background:#12121e;}
+body.dark .kanban-card{background:#1a1a2e;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+body.dark .kanban-card:hover{background:#1e1e30;}
+body.dark .kanban-card.dragging{box-shadow:0 8px 32px rgba(0,0,0,.6);}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Epilogue',sans-serif;font-size:14px;min-height:100vh;}
 
@@ -330,6 +354,28 @@ td{padding:12px;vertical-align:middle;}
 .pin-inp{letter-spacing:6px;font-size:18px;text-align:center;}
 
 /* Toast */
+/* Kanban Board */
+.kanban-wrap{padding:16px 28px 32px;overflow-x:auto;}
+.kanban-board{display:flex;gap:14px;min-width:max-content;align-items:flex-start;}
+.kanban-col{background:var(--surface2);border:1px solid var(--border);border-radius:12px;width:260px;min-width:260px;display:flex;flex-direction:column;transition:box-shadow .2s;}
+.kanban-col.drag-over{box-shadow:0 0 0 2px var(--accent2);background:rgba(200,169,110,.06);}
+.kanban-col-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;}
+.kanban-col-title{font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+.kanban-col-count{font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:2px 8px;color:var(--muted);}
+.kanban-tasks{padding:10px 10px;display:flex;flex-direction:column;gap:8px;min-height:80px;}
+.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;cursor:grab;transition:all .15s;box-shadow:var(--shadow);user-select:none;position:relative;}
+.kanban-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px);}
+.kanban-card.dragging{opacity:.5;cursor:grabbing;transform:rotate(2deg);box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.kanban-card.drag-placeholder{border:2px dashed var(--accent2);background:rgba(200,169,110,.05);min-height:60px;border-radius:9px;}
+.kanban-card-name{font-size:13px;font-weight:500;line-height:1.4;margin-bottom:7px;color:var(--text);}
+.kanban-card-meta{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.kanban-card-pin{position:absolute;top:8px;right:8px;font-size:11px;opacity:.6;}
+.kanban-add{padding:8px 10px;border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer;text-align:left;width:100%;font-family:"Epilogue",sans-serif;border-top:1px solid var(--border);border-radius:0 0 12px 12px;transition:background .15s;}
+.kanban-add:hover{background:var(--surface);color:var(--text);}
+.kanban-empty{text-align:center;padding:20px 10px;color:var(--muted);font-size:12px;}
+/* Dark mode toggle */
+.dark-toggle{font-size:16px;}
+body.dark #darkModeBtn{color:var(--accent2);}
 .toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:#fff;padding:11px 16px;border-radius:9px;font-size:13px;z-index:600;transform:translateY(60px);opacity:0;transition:all .3s;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;}
 .toast.show{transform:translateY(0);opacity:1;}
 
@@ -565,6 +611,7 @@ td{padding:12px;vertical-align:middle;}
       <button class="hbtn" onclick="showWorkspaceCode()">📋 Code</button>
       <button class="hbtn" onclick="openChangePIN()">🔑 PIN</button>
       <button class="hbtn" id="changeAdminPinBtn" onclick="changeAdminPIN()" style="display:none;" title="Change Admin PIN">🔑 Admin PIN</button>
+      <button class="hbtn" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
       <button class="hbtn" onclick="lockApp()">🔒 Lock</button>
       <button class="btn btn-primary" id="addTaskBtn" onclick="openModal()">＋ Add Task</button>
     </div>
@@ -589,6 +636,7 @@ td{padding:12px;vertical-align:middle;}
   <div class="tabs">
     <div class="tab active" id="tab-list" onclick="switchTab('list')">📋 Tasks</div>
     <div class="tab" id="tab-week" onclick="switchTab('week')">📅 Weekly</div>
+    <div class="tab" id="tab-board" onclick="switchTab('board')">🗂 Board</div>
     <div class="tab" id="tab-comments" onclick="switchTab('comments')">💬 Comments <span id="commentBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;font-weight:700;"></span></div>
   </div>
 
@@ -644,6 +692,13 @@ td{padding:12px;vertical-align:middle;}
         <div class="no-dl-hdr">📌 No Deadline Set</div>
         <div class="no-dl-grid" id="noDlGrid"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- BOARD VIEW -->
+  <div class="view" id="view-board">
+    <div class="kanban-wrap" id="kanbanWrap">
+      <div class="kanban-board" id="kanbanBoard"></div>
     </div>
   </div>
 
@@ -731,7 +786,6 @@ td{padding:12px;vertical-align:middle;}
         <label>Recurring Task?</label>
         <select id="f-recurring" onchange="onRecurringChange()">
           <option value="">No -- One-time task</option>
-          <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
           <option value="quarterly">Quarterly</option>
@@ -1219,6 +1273,7 @@ function bootApp(code,role,fromLock=false){
   setSyncStatus('syncing','Connecting...');
   setupDailyReminder();
 
+  initDarkMode();
   loadNotifications();
   renderNotifBadge();
   setupMentionListener();
@@ -1248,6 +1303,7 @@ function startListeners(code){
       tasks=snap.docs.map(d=>({id:d.id,...d.data()}));
       setSyncStatus('live','Live -- syncing across all devices');
       render();
+      if(activeTab==='board') renderBoard();
       // Show reminder on first load after login
       if(firstLoad){
         firstLoad = false;
@@ -1421,6 +1477,8 @@ function sortTasks(list){
     // Pinned tasks always float to top
     if(a.pinned&&!b.pinned) return -1;
     if(!a.pinned&&b.pinned) return 1;
+    // Respect manual sort order if set
+    if(a.sortOrder!=null&&b.sortOrder!=null) return a.sortOrder-b.sortOrder;
     let av=a[sortField]||'',bv=b[sortField]||'';
     if(sortField==='priority'){av=PRIO_ORDER[av]??99;bv=PRIO_ORDER[bv]??99;}
     if(sortField==='progress'){av=parseInt(av)||0;bv=parseInt(bv)||0;}
@@ -1472,6 +1530,8 @@ function render(){
       </tr>`;
     }).join('');
   }
+  // Enable list drag after render
+  setTimeout(enableListDrag, 50);
   document.getElementById('cardList').innerHTML=filtered.map(t=>{
     const dc=dlClass(t.deadline);const isOv=dc==='overdue'&&t.status!=='Done';
     return`<div class="tc ${isOv?'ov':''}" onclick="editTask('${t.id}')">
@@ -1507,7 +1567,7 @@ function renderWeek(){
   document.getElementById('weekGrid').innerHTML=days.map(d=>{
     const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];
     const lp=Math.round((dt.length/mx)*100);const lc=lp>80?'var(--danger)':lp>50?'var(--warn)':'var(--accent)';
-    return`<div class="day-col${isT?' is-today':''}"><div class="day-hdr${isT?' is-today':''}"><div class="day-name">${DS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-load-bar"><div class="day-load-fill" style="width:${dt.length?lp:0}%;background:${lc}"></div></div><div class="day-count-lbl">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</div></div><div class="day-tasks">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">--</div>'}</div></div>`;
+    return`<div class="day-col${isT?' is-today':''}" data-date="${key}"><div class="day-hdr${isT?' is-today':''}"><div class="day-name">${DS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div><div class="day-load-bar"><div class="day-load-fill" style="width:${dt.length?lp:0}%;background:${lc}"></div></div><div class="day-count-lbl">${dt.length?dt.length+' task'+(dt.length>1?'s':''):'free'}</div></div><div class="day-tasks">${dt.length?dt.map(tc2).join(''):'<div class="day-empty">--</div>'}</div></div>`;
   }).join('');
   document.getElementById('weekMobile').innerHTML=days.map(d=>{
     const key=dStr(d);const isT=key===todayKey;const dt=byDay[key]||[];const id='wmd-'+key;
@@ -1581,8 +1641,7 @@ function onRecurringChange(){
 function calcNextDue(dateStr, freq){
   if(!dateStr) return '';
   const d = new Date(dateStr);
-  if(freq==='daily') d.setDate(d.getDate()+1);
-  else if(freq==='weekly') d.setDate(d.getDate()+7);
+  if(freq==='weekly') d.setDate(d.getDate()+7);
   else if(freq==='monthly') d.setMonth(d.getMonth()+1);
   else if(freq==='quarterly') d.setMonth(d.getMonth()+3);
   else if(freq==='yearly') d.setFullYear(d.getFullYear()+1);
@@ -1686,13 +1745,15 @@ async function saveTask(){
 
 function switchTab(tab){
   activeTab=tab;
-  ['list','week','comments'].forEach(t=>{
-    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+  ['list','week','board','comments'].forEach(t=>{
+    const tabEl=document.getElementById('tab-'+t);
+    if(tabEl) tabEl.classList.toggle('active',t===tab);
     const v=document.getElementById('view-'+t);if(v)v.classList.toggle('active',t===tab);
   });
   document.getElementById('listToolbar').style.display=tab==='list'?'flex':'none';
-  if(tab==='week')renderWeek();
-  else if(tab==='comments')renderComments();
+  if(tab==='week'){renderWeek();setTimeout(enableWeeklyDrag,200);}
+  else if(tab==='comments') renderComments();
+  else if(tab==='board') renderBoard();
   else render();
 }
 
@@ -1863,6 +1924,7 @@ function proceedToAdminDashboard(){
     else initFirebase(DEFAULT_FB_CFG);
   }
 
+  initDarkMode();
   setSyncStatus('syncing','Loading all workspaces...');
   loadAdminDashboard();
 }
@@ -2415,6 +2477,319 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('#mentionDropdown')&&!e.target.closest('#commentInput'))
     hideMentionDropdown();
 });
+
+// =============================================
+// DARK MODE
+// =============================================
+function toggleDarkMode(){
+  const isDark = document.body.classList.toggle('dark');
+  lsSet('ea_dark_mode', isDark ? '1' : '0');
+  document.getElementById('darkModeBtn').textContent = isDark ? '☀️' : '🌙';
+}
+
+function initDarkMode(){
+  const saved = lsGet('ea_dark_mode');
+  if(saved === '1'){
+    document.body.classList.add('dark');
+    const btn = document.getElementById('darkModeBtn');
+    if(btn) btn.textContent = '☀️';
+  }
+}
+
+// =============================================
+// KANBAN BOARD
+// =============================================
+const KANBAN_COLS = [
+  {id:'To Do',    label:'To Do',       color:'var(--todo)',   dot:'🔵'},
+  {id:'In Progress',label:'In Progress',color:'var(--inprog)', dot:'🟢'},
+  {id:'For Review', label:'For Review', color:'var(--review)', dot:'🟡'},
+  {id:'Done',       label:'Done',       color:'var(--done)',   dot:'🟣'},
+];
+
+let dragCard = null;
+let dragTaskId = null;
+let dragSourceStatus = null;
+let placeholder = null;
+
+function renderBoard(){
+  const board = document.getElementById('kanbanBoard');
+  if(!board) return;
+
+  board.innerHTML = KANBAN_COLS.map(col => {
+    const colTasks = tasks
+      .filter(t => t.status === col.id)
+      .sort((a,b) => {
+        if(a.pinned && !b.pinned) return -1;
+        if(!a.pinned && b.pinned) return 1;
+        return (PRIO_ORDER[a.priority]??99) - (PRIO_ORDER[b.priority]??99);
+      });
+    const cards = colTasks.map(t => buildKanbanCard(t)).join('');
+    return '<div class="kanban-col" data-status="'+col.id+'" id="kcol-'+col.id.replace(/ /g,'-')+'">'
+      +'<div class="kanban-col-header">'
+      +'<span class="kanban-col-title" style="color:'+col.color+';">'+col.dot+' '+col.label+'</span>'
+      +'<span class="kanban-col-count">'+colTasks.length+'</span>'
+      +'</div>'
+      +'<div class="kanban-tasks" id="ktasks-'+col.id.replace(/ /g,'-')+'">'
+      +(cards || '<div class="kanban-empty">Drop tasks here</div>')
+      +'</div>'
+      +'<button class="kanban-add" data-colstatus="'+col.id+'">+ Add task</button>'
+      +'</div>';
+  }).join('');
+
+  // Attach drag events
+  attachKanbanDrag();
+  // Attach add task buttons
+  document.querySelectorAll('.kanban-add[data-colstatus]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      openModal();
+      setTimeout(()=>{ document.getElementById('f-status').value = btn.getAttribute('data-colstatus'); }, 50);
+    });
+  });
+}
+
+function buildKanbanCard(t){
+  const dc = dlClass(t.deadline);
+  const dlHtml = t.deadline ? '<span class="dl '+dc+'" style="font-size:10px;">'+dlLabel(t.deadline)+'</span>' : '';
+  const catHtml = t.category ? '<span class="ct" style="font-size:9px;">'+escHtml(t.category)+'</span>' : '';
+  const assignHtml = t.assignee ? '<span style="font-size:10px;color:var(--muted);">👤 '+escHtml(t.assignee)+'</span>' : '';
+  const pinHtml = t.pinned ? '<span class="kanban-card-pin">📌</span>' : '';
+  const recurHtml = t.recurring ? '<span style="font-size:9px;background:rgba(41,128,185,.12);color:var(--todo);padding:1px 5px;border-radius:100px;">🔄 '+t.recurring+'</span>' : '';
+  return '<div class="kanban-card" draggable="true" data-id="'+t.id+'" data-status="'+t.status+'" data-edit="'+t.id+'">'
+    + pinHtml
+    + '<div class="kanban-card-name">'+escHtml(t.task)+'</div>'
+    + '<div class="kanban-card-meta">'
+    + prioSpan(t.priority)
+    + dlHtml
+    + catHtml
+    + assignHtml
+    + recurHtml
+    + '</div>'
+    + '</div>';
+}
+
+function attachKanbanDrag(){
+  // Mouse drag for desktop
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', onDragStart);
+    card.addEventListener('dragend', onDragEnd);
+    // Touch drag for mobile
+    card.addEventListener('touchstart', onTouchStart, {passive:true});
+    card.addEventListener('touchmove', onTouchMove, {passive:false});
+    card.addEventListener('touchend', onTouchEnd);
+  });
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    col.addEventListener('dragover', onDragOver);
+    col.addEventListener('dragleave', onDragLeave);
+    col.addEventListener('drop', onDrop);
+  });
+  // Card click to edit (not during drag)
+  document.querySelectorAll('.kanban-card[data-edit]').forEach(function(card){
+    card.addEventListener('click', function(e){
+      if(!card.classList.contains('dragging')) editTask(card.getAttribute('data-edit'));
+    });
+  });
+}
+
+// ── Mouse Drag ──
+function onDragStart(e){
+  dragCard = e.currentTarget;
+  dragTaskId = dragCard.getAttribute('data-id');
+  dragSourceStatus = dragCard.getAttribute('data-status');
+  dragCard.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragTaskId);
+}
+
+function onDragEnd(e){
+  if(dragCard) dragCard.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  removePlaceholder();
+  dragCard = null; dragTaskId = null; dragSourceStatus = null;
+}
+
+function onDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.currentTarget;
+  col.classList.add('drag-over');
+  // Show placeholder
+  const tasksEl = col.querySelector('.kanban-tasks');
+  if(tasksEl && !tasksEl.querySelector('.drag-placeholder')){
+    removePlaceholder();
+    placeholder = document.createElement('div');
+    placeholder.className = 'kanban-card drag-placeholder';
+    tasksEl.appendChild(placeholder);
+  }
+}
+
+function onDragLeave(e){
+  const col = e.currentTarget;
+  if(!col.contains(e.relatedTarget)){
+    col.classList.remove('drag-over');
+    removePlaceholder();
+  }
+}
+
+async function onDrop(e){
+  e.preventDefault();
+  const col = e.currentTarget;
+  col.classList.remove('drag-over');
+  removePlaceholder();
+  const newStatus = col.getAttribute('data-status');
+  if(!dragTaskId || !newStatus) return;
+  if(newStatus !== dragSourceStatus){
+    await updateKanbanStatus(dragTaskId, newStatus);
+  }
+}
+
+function removePlaceholder(){
+  if(placeholder && placeholder.parentNode){
+    placeholder.parentNode.removeChild(placeholder);
+  }
+  placeholder = null;
+}
+
+async function updateKanbanStatus(taskId, newStatus){
+  const t = tasks.find(x => x.id === taskId);
+  if(!t) return;
+  const updated = {...t, status: newStatus};
+  if(newStatus === 'Done') updated.progress = 100;
+  else if(updated.progress === 100) updated.progress = 90;
+  await updateTaskInDb(updated);
+  if(newStatus === 'Done' && updated.recurring) await createRecurringInstance(updated);
+  if(newStatus === 'Done') addNotification('done', 'Task completed: '+updated.task, updated.id);
+  toast('Moved to: '+newStatus);
+}
+
+// ── Touch Drag for Mobile ──
+let touchCard = null;
+let touchClone = null;
+let touchOffX = 0, touchOffY = 0;
+
+function onTouchStart(e){
+  touchCard = e.currentTarget;
+  dragTaskId = touchCard.getAttribute('data-id');
+  dragSourceStatus = touchCard.getAttribute('data-status');
+  const rect = touchCard.getBoundingClientRect();
+  const touch = e.touches[0];
+  touchOffX = touch.clientX - rect.left;
+  touchOffY = touch.clientY - rect.top;
+  // Create floating clone
+  touchClone = touchCard.cloneNode(true);
+  touchClone.style.cssText = 'position:fixed;width:'+rect.width+'px;opacity:.85;pointer-events:none;z-index:9999;border-radius:9px;box-shadow:0 8px 32px rgba(0,0,0,.3);transform:rotate(2deg);transition:none;';
+  touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+  touchClone.style.top = (touch.clientY - touchOffY) + 'px';
+  document.body.appendChild(touchClone);
+  touchCard.style.opacity = '0.4';
+}
+
+function onTouchMove(e){
+  e.preventDefault();
+  if(!touchClone) return;
+  const touch = e.touches[0];
+  touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+  touchClone.style.top = (touch.clientY - touchOffY) + 'px';
+  // Highlight column under finger
+  touchClone.style.display = 'none';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  const col = el ? el.closest('.kanban-col') : null;
+  if(col) col.classList.add('drag-over');
+}
+
+async function onTouchEnd(e){
+  if(!touchClone) return;
+  const touch = e.changedTouches[0];
+  touchClone.style.display = 'none';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  const col = el ? el.closest('.kanban-col') : null;
+  if(col){
+    const newStatus = col.getAttribute('data-status');
+    col.classList.remove('drag-over');
+    if(newStatus && newStatus !== dragSourceStatus){
+      await updateKanbanStatus(dragTaskId, newStatus);
+    }
+  }
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  document.body.removeChild(touchClone);
+  touchClone = null;
+  if(touchCard) touchCard.style.opacity = '';
+  touchCard = null; dragTaskId = null; dragSourceStatus = null;
+}
+
+// ── Weekly view drag to date ──
+function enableWeeklyDrag(){
+  document.querySelectorAll('.dtc').forEach(card => {
+    card.setAttribute('draggable', 'true');
+    card.addEventListener('dragstart', e => {
+      const taskId = card.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+      if(taskId){ e.dataTransfer.setData('text/plain', 'weekly:'+taskId); card.classList.add('dragging'); }
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.day-col,.wm-day').forEach(dayEl => {
+    dayEl.addEventListener('dragover', e => { e.preventDefault(); dayEl.style.outline='2px solid var(--accent2)'; });
+    dayEl.addEventListener('dragleave', () => dayEl.style.outline='');
+    dayEl.addEventListener('drop', async e => {
+      e.preventDefault(); dayEl.style.outline='';
+      const data = e.dataTransfer.getData('text/plain');
+      if(!data.startsWith('weekly:')) return;
+      const taskId = data.replace('weekly:','');
+      // Get date from day column
+      const dateKey = dayEl.id?.replace('wmd-','') || dayEl.getAttribute('data-date');
+      if(!dateKey) return;
+      const t = tasks.find(x => x.id === taskId);
+      if(!t) return;
+      const updated = {...t, deadline: dateKey};
+      await updateTaskInDb(updated);
+      toast('Deadline moved to '+dateKey);
+    });
+  });
+}
+
+// ── List view drag to reorder ──
+let listDragId = null;
+let listDragOverId = null;
+
+function enableListDrag(){
+  const rows = document.querySelectorAll('#taskBody tr');
+  rows.forEach(row => {
+    const taskId = row.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    if(!taskId) return;
+    row.setAttribute('draggable','true');
+    row.style.cursor = 'grab';
+    row.addEventListener('dragstart', e => {
+      listDragId = taskId;
+      row.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => { row.style.opacity=''; listDragId=null; });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      listDragOverId = taskId;
+      row.style.borderTop = '2px solid var(--accent2)';
+    });
+    row.addEventListener('dragleave', () => { row.style.borderTop=''; });
+    row.addEventListener('drop', async e => {
+      e.preventDefault();
+      row.style.borderTop='';
+      if(!listDragId || listDragId === taskId) return;
+      // Reorder in local array
+      const fromIdx = tasks.findIndex(t => t.id === listDragId);
+      const toIdx = tasks.findIndex(t => t.id === taskId);
+      if(fromIdx < 0 || toIdx < 0) return;
+      const moved = tasks.splice(fromIdx, 1)[0];
+      tasks.splice(toIdx, 0, moved);
+      // Assign sortOrder field and save
+      const updates = tasks.map((t,i) => ({...t, sortOrder: i}));
+      await Promise.all(updates.map(t => updateTaskInDb(t)));
+      render();
+      toast('Task reordered');
+    });
+  });
+}
 
 function showWorkspaceCode(){
   document.getElementById('modalWsCode').textContent=wsCode;
